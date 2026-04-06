@@ -24,6 +24,9 @@ interface AppStore extends AppState {
   setCampaignTag: (campaignId: string, tags: string[]) => void;
   updateCRMLead: (lead: CRMLead) => void;
   setLastSync: (time: string) => void;
+  setIntelProductFilter: (val: string) => void;
+  setIntelCampaignFilter: (val: string) => void;
+  setIntelSignalFilter: (val: string) => void;
 }
 
 export const useAppStore = create<AppStore>()(
@@ -53,6 +56,9 @@ export const useAppStore = create<AppStore>()(
       selectedCampaigns: [],
       isLoading: false,
       lastSync: null,
+      intelProductFilter: 'all',
+      intelCampaignFilter: 'all',
+      intelSignalFilter: 'all',
 
       setToken: (token) => set({ token }),
       setAccountId: (accountId) => set({ accountId }),
@@ -86,6 +92,9 @@ export const useAppStore = create<AppStore>()(
       setStatusFilter: (statusFilter) => set({ statusFilter }),
       setSelectedCampaigns: (selectedCampaigns) => set({ selectedCampaigns }),
       setLastSync: (lastSync) => set({ lastSync }),
+      setIntelProductFilter: (intelProductFilter) => set({ intelProductFilter }),
+      setIntelCampaignFilter: (intelCampaignFilter) => set({ intelCampaignFilter }),
+      setIntelSignalFilter: (intelSignalFilter) => set({ intelSignalFilter }),
     }),
     {
       name: "tf-store",

@@ -42,10 +42,10 @@ export interface AppState {
   productPrice: number;
   monthlyBudget: number;
   isDirectorMode: boolean;
-  annotations: Record<string, string>; // date (YYYY-MM-DD): text
-  campaignTags: Record<string, string[]>; // campaign_id: tags[]
+  annotations: Record<string, string>;
+  campaignTags: Record<string, string[]>;
   crmLeads: CRMLead[];
-  period: string; // 'last_30d', 'last_7d', 'today', 'maximum'
+  period: string;
   customStart: string;
   customEnd: string;
   isCompare: boolean;
@@ -58,6 +58,9 @@ export interface AppState {
   selectedCampaigns: string[];
   isLoading: boolean;
   lastSync: string | null;
+  intelProductFilter: string;  // Dynamic — auto-populated from campaign names
+  intelCampaignFilter: string;
+  intelSignalFilter: string;   // 'all' | 'scale' | 'monitor' | 'optimize'
 }
 
 export interface AdCreative {
@@ -72,4 +75,28 @@ export interface KpiTotals {
   registrations: number;
   impressions: number;
   clicks: number;
+}
+
+export interface CampaignIntel {
+  campaign_id: string;
+  campaign_name: string;
+  product: string; // Auto-extracted token from campaign name
+  spend: number;
+  impressions: number;
+  clicks: number;
+  leads: number;
+  conversations: number;
+  cpl: number;
+  ctr: number;
+  frequency: number;
+  signal: 'scale' | 'monitor' | 'optimize';
+  signalReason: string;
+  cplVsAvg: number; // % difference from account average CPL
+  funnelDrop: number; // % drop from clicks to leads
+}
+
+export interface IntelFilters {
+  products: string[];     // Auto-parsed from campaign names
+  campaigns: string[];    // All campaign names
+  placements: string[];   // From Meta breakdowns (future)
 }

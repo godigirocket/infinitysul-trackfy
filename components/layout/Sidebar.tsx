@@ -10,12 +10,14 @@ import {
   Zap,
   LogOut,
   Target,
-  BarChart2
+  BarChart2,
+  Brain
 } from "lucide-react";
 import { cn } from "@/components/ui/Button";
 
 const navigation = [
   { name: "Dashboard AI", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Central de Inteligência", href: "/intelligence", icon: Brain },
   { name: "Análise Visual", href: "/campaigns/creatives", icon: Zap },
   { name: "Gestão VIP/CRM", href: "/crm", icon: Target },
   { name: "Simulador", href: "/simulator", icon: BarChart2 },

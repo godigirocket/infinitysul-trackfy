@@ -1,19 +1,6 @@
-@import "tailwindcss";
-
-@theme {
-  --color-background-brand: #0a0a0c;
-  --color-surface-brand: #111113;
-  --color-text-brand: #e4e4e7;
-  --color-muted-brand: #71717a;
-  --color-border-brand: rgba(255, 255, 255, 0.05);
-  --color-accent-brand: #6366f1;
-  --color-success-brand: #10b981;
-  --color-danger-brand: #ef4444;
-  --color-warning-brand: #f59e0b;
-
-  --font-sans: var(--font-inter);
-  --font-mono: var(--font-jetbrains-mono);
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --bg: #0a0a0c;
@@ -31,8 +18,7 @@
   body {
     background-color: var(--bg);
     color: var(--text);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    @apply antialiased;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02";
   }
 
@@ -42,16 +28,18 @@
   }
 }
 
-@utility glass {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-}
+@layer utilities {
+  .glass {
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
 
-@utility mono {
-  font-family: var(--font-jetbrains-mono);
-  font-weight: 500;
+  .mono {
+    font-family: var(--font-jetbrains-mono);
+    font-weight: 500;
+  }
 }
 
 ::-webkit-scrollbar {
