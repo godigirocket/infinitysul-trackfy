@@ -3,6 +3,12 @@ import { MetaInsight } from "@/types";
 const API_VERSION = "v19.0";
 const BASE_URL = `https://graph.facebook.com/${API_VERSION}`;
 
+/** Ensures the account ID has the required act_ prefix */
+const normalizeAccountId = (id: string): string => {
+  if (!id) return id;
+  return id.startsWith("act_") ? id : `act_${id}`;
+};
+
 export const fetchMetaInsights = async (
   accountId: string,
   token: string,
@@ -37,7 +43,7 @@ export const fetchMetaInsights = async (
     "date_start",
   ].join(",");
 
-  const id = params.campaignId || accountId;
+  const id = params.campaignId || normalizeAccountId(accountId);
   let urlParams = `fields=${fields}&access_token=${token}&limit=500`;
 
   if (params.level) {
