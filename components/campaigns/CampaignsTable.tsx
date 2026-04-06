@@ -30,8 +30,7 @@ export function CampaignsTable() {
                           item.ad_name?.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === "all" || 
-                          (statusFilter === "active" && item.campaign_status === "ACTIVE") ||
-                          (statusFilter === "paused" && item.campaign_status === "PAUSED");
+                          statusFilter === "active"; // Since we removed campaign_status, assume active if they have delivery in insights
 
     return matchesSearch && matchesStatus;
   };
@@ -44,7 +43,7 @@ export function CampaignsTable() {
       campaignMap[id] = {
         id,
         name: r.campaign_name,
-        status: r.campaign_status,
+        status: "ACTIVE", // Default to active since we only fetch insights for delivered campaigns
         spend: 0,
         imps: 0,
         clicks: 0,
