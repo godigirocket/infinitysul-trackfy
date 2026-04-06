@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trackfy</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <style>
+        :root{--bg:#0a0a0c;--surface:#111113;--text:#e4e4e7;--muted:#71717a;--border:rgba(255,255,255,0.05);--accent:#6366f1;--success:#10b981;--danger:#ef4444;--warning:#f59e0b;--font-base:'Inter',sans-serif;--font-mono:'JetBrains Mono',monospace;--radius:12px;--shadow:0 2px 8px rgba(0,0,0,0.4);}
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{background:var(--bg);color:var(--text);font-family:var(--font-base);display:flex;height:100vh;overflow:hidden;}
+        ::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:10px;}
+        .mono{font-family:var(--font-mono);}
+        
+        aside{width:240px;background:var(--surface);border-right:1px solid var(--border);padding:24px 16px;display:flex;flex-direction:column;z-index:100;}
+        .logo{display:flex;align-items:center;gap:10px;margin-bottom:32px;}
+        .logo i{color:var(--accent);font-size:24px;}
+        .logo span{font-weight:700;font-size:18px;letter-spacing:-0.5px;}
+        
+        .nav-link{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--muted);text-decoration:none;font-weight:500;font-size:13px;cursor:pointer;margin-bottom:4px;transition:0.2s;}
+        .nav-link:hover{background:rgba(255,255,255,0.02);color:var(--text);}
+        .nav-link.active{background:linear-gradient(90deg, rgba(99,102,241,0.1), transparent);color:var(--accent);border-left:2px solid var(--accent);}
+        
+        main{flex:1;display:flex;flex-direction:column;}
+        header{height:60px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;}
+        
+        .content{flex:1;padding:24px;overflow-y:auto;}
+        .view{display:none;} .view.active{display:block;}
+        
+        .glass{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);}
+        
+        .btn{padding:8px 16px;border-radius:8px;border:none;background:var(--text);color:#000;font-weight:600;font-size:12px;cursor:pointer;transition:0.2s;display:inline-flex;align-items:center;gap:6px;}
+        .btn:hover{opacity:0.9;}
+        .btn-outline{background:transparent;color:var(--text);border:1px solid var(--border);}
+        .btn-outline:hover{background:rgba(255,255,255,0.05);}
+        
+        .input-box{background:var(--bg);border:1px solid var(--border);padding:10px;border-radius:8px;color:var(--text);font-size:13px;width:100%;outline:none;}
+        .input-box:focus{border-color:var(--accent);}
+        
+        .date-filters{display:flex;gap:8px;align-items:center;}
+        .date-btn{background:var(--bg);border:1px solid var(--border);color:var(--muted);padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;}
+        .date-btn.active{background:rgba(255,255,255,0.1);color:var(--text);}
+        
+        .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+        .kpi-card{padding:20px;position:relative;overflow:hidden;transition:0.2s;}
+        .kpi-card:hover{transform:translateY(-2px);box-shadow:0 8px 16px rgba(0,0,0,0.5);}
+        .kpi-title{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:0.5px;margin-bottom:8px;}
+        .kpi-val{font-size:26px;font-weight:700;}
+        .kpi-diff{font-size:12px;margin-top:4px;}
+        
+        table{width:100%;border-collapse:collapse;text-align:left;}
+        th{padding:12px 16px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--border);font-weight:600;}
+        td{padding:14px 16px;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.02);position:relative;}
+        tr:hover td{background:rgba(255,255,255,0.02);}
+        
+        .badge{padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;}
+        .bg-success{background:rgba(16,185,129,0.1);color:var(--success);}
+        .bg-danger{background:rgba(239,68,68,0.1);color:var(--danger);}
+        .bg-warning{background:rgba(245,158,11,0.1);color:var(--warning);}
+
+        .health-bar{height:4px;background:var(--bg);border-radius:2px;margin-top:4px;overflow:hidden;}
+        .health-fill{height:100%;}
+        
+        .thumb-box{width:32px;height:32px;border-radius:4px;background:var(--bg);display:inline-flex;align-items:center;justify-content:center;overflow:hidden;vertical-align:middle;margin-right:8px;}
+        .thumb-box img{width:100%;height:100%;object-fit:cover;}
+
+        /* Modals and Overlays */
+        .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(4px);z-index:2000;display:none;align-items:center;justify-content:center;padding:24px;}
+        .modal{background:var(--surface);width:100%;max-width:1100px;max-height:90vh;border-radius:var(--radius);border:1px solid var(--border);display:flex;flex-direction:column;box-shadow:var(--shadow);}
+        .modal-body{overflow-y:auto;padding:24px;}
+
+        /* AI Feed & Toasts */
+        .toast{position:fixed;bottom:20px;right:20px;padding:16px;border-radius:8px;background:var(--surface);border-left:4px solid var(--accent);box-shadow:var(--shadow);z-index:3000;color:var(--text);font-size:13px;}
+        .ai-tip{font-size:12px;padding:12px;background:rgba(99,102,241,0.05);border-radius:6px;border:1px solid rgba(99,102,241,0.2);margin-top:8px;}
+    </style>
+</head>
+<body id="pdf-root">
+
+<aside>
+    <div class="logo"><i class="fa-solid fa-chart-line"></i><span>Trackfy</span></div>
+    <nav>
+        <div class="nav-link active" onclick="App.v('dash')"><i class="fa-solid fa-border-all"></i> Dashboard</div>
+        <div class="nav-link" onclick="App.v('exec')"><i class="fa-solid fa-arrow-trend-up"></i> Simulador</div>
+        <div class="nav-link" onclick="App.v('ads')"><i class="fa-solid fa-bullhorn"></i> Campanhas</div>
+        <div class="nav-link" onclick="App.v('set')"><i class="fa-solid fa-gear"></i> Configs</div>
+    </nav>
+    <div style="margin-top:auto">
+        <div id="sync-lbl" style="font-size:10px;color:var(--muted);margin-bottom:10px;">Sinc: Nunca</div>
+        <button class="btn btn-outline" style="width:100%;margin-bottom:8px;" onclick="App.v('set')">Keys</button>
+        <button class="btn btn-outline" style="width:100%;color:var(--danger);" onclick="App.logout()">Sair</button>
+    </div>
+</aside>
+
+<main>
+    <header>
+        <div><span id="st-badge" class="badge bg-danger">OFF-LINE</span></div>
+        <div class="date-filters">
+            <label style="font-size:11px;color:var(--muted);"><input type="checkbox" id="chk-comp" onchange="App.chgD()"> Comparar</label>
+            <input type="date" id="d-st" class="input-box" style="padding:4px;width:120px;" onchange="App.setCust()">
+            <input type="date" id="d-en" class="input-box" style="padding:4px;width:120px;" onchange="App.setCust()">
+            <button class="date-btn" onclick="App.setP('maximum')">Max</button>
+            <button class="date-btn active" onclick="App.setP('last_30d')">30D</button>
+            <button class="date-btn" onclick="App.setP('last_7d')">7D</button>
+            <button class="date-btn" onclick="App.setP('today')">Hoje</button>
+            <button class="btn" style="padding:6px;background:var(--accent);color:#fff" onclick="App.f()"><i class="fa-solid fa-rotate"></i></button>
+            <button class="btn btn-outline" style="padding:6px" onclick="App.expPDF()"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+        </div>
+    </header>
+
+    <div class="content">
+        <!-- Dash -->
+        <section id="v-dash" class="view active">
+            <div class="grid-4">
+                <div class="kpi-card glass">
+                    <div class="kpi-title">INVESTIMENTO</div>
+                    <div class="kpi-val mono" id="v-sp">R$ 0,00</div><div id="df-sp" class="kpi-diff">--</div>
+                </div>
+                <div class="kpi-card glass">
+                    <div class="kpi-title">LEADS</div>
+                    <div class="kpi-val mono" id="v-ld">0</div>
+                    <div style="font-size:11px;color:var(--muted);margin-top:2px;" id="v-cpl">CPL: R$ 0,00</div><div id="df-ld" class="kpi-diff">--</div>
+                </div>
+                <div class="kpi-card glass">
+                    <div class="kpi-title">CONVERSAS</div>
+                    <div class="kpi-val mono" id="v-cv">0</div>
+                    <div style="font-size:11px;color:var(--muted);margin-top:2px;" id="v-cpcv">Custo: R$ 0,00</div><div id="df-cv" class="kpi-diff">--</div>
+                </div>
+                <div class="kpi-card glass">
+                    <div class="kpi-title">CADASTROS</div>
+                    <div class="kpi-val mono" id="v-rg">0</div>
+                    <div style="font-size:11px;color:var(--muted);margin-top:2px;" id="v-cprg">Custo: R$ 0,00</div><div id="df-rg" class="kpi-diff">--</div>
+                </div>
+            </div>
+            
+            <div style="display:grid;grid-template-columns:3fr 1fr;gap:20px;margin-top:20px;">
+                <div class="glass" style="padding:24px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
+                        <span style="font-weight:600;font-size:14px;">Volume Gasto vs Área Leads</span>
+                        <div style="display:flex;gap:4px;">
+                            <button class="btn-outline" style="font-size:10px;padding:4px;" onclick="App.zoom(7)">Zoom 7D</button>
+                            <button class="btn-outline" style="font-size:10px;padding:4px;" onclick="App.zoom(0)">Reset</button>
+                        </div>
+                    </div>
+                    <div style="height:320px;"><canvas id="ch-main"></canvas></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:20px;">
+                    <div class="glass" style="padding:20px;flex:1;">
+                        <h3 style="font-size:13px;margin-bottom:12px;"><i class="fa-solid fa-bell text-warning"></i> Alertas Preditivos</h3>
+                        <div id="al-feed" style="max-height:160px;overflow-y:auto;font-size:12px;color:var(--muted);">Analisando...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Perf -->
+        <section id="v-ads" class="view">
+            <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
+                <h2 style="font-size:18px;">Performance de Campanhas</h2>
+                <button class="btn btn-outline" onclick="App.expCSV('camp')"><i class="fa-solid fa-download"></i> CSV</button>
+            </div>
+            <div class="glass" style="overflow-x:auto;">
+                <table>
+                    <thead><tr>
+                        <th>Campanha</th><th>Saúde</th><th>Gasto</th><th>Imps</th><th>Freq</th><th>CTR</th><th>Leads</th><th>Conversas</th><th>Cadastros</th><th>CPL</th><th>Insight IA</th>
+                    </tr></thead>
+                    <tbody id="tb-camp" class="mono"><tr><td colspan="9" style="text-align:center;">Vazio</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Sim -->
+        <section id="v-exec" class="view">
+            <h2 style="font-size:18px;margin-bottom:16px;">Simulador de Escala</h2>
+            <div class="glass" style="padding:32px;max-width:800px;margin:0 auto;">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:24px;">
+                    <div><label style="font-size:12px;color:var(--muted);">Mais Orçamento Diário (R$)</label><input type="number" id="s-bdg" class="input-box" value="1000" oninput="App.sim()"></div>
+                    <div><label style="font-size:12px;color:var(--muted);">Ticket Médio (R$)</label><input type="number" id="s-tk" class="input-box" value="297" oninput="App.sim()"></div>
+                    <div><label style="font-size:12px;color:var(--muted);">Tx. Conv (%)</label><input type="number" id="s-tx" class="input-box" value="5" oninput="App.sim()"></div>
+                </div>
+                <div style="background:rgba(255,255,255,0.02);padding:24px;border-radius:8px;text-align:center;">
+                    <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Baseado em Top 3 Campanhas (<span id="s-cpl">R$ 0</span>)</div>
+                    <div style="display:flex;justify-content:space-around;">
+                        <div><div class="kpi-val mono" id="s-ld">0</div><div style="font-size:11px;color:var(--muted);">Leads/+</div></div>
+                        <div><div class="kpi-val mono" id="s-sl">0</div><div style="font-size:11px;color:var(--muted);">Vendas/+</div></div>
+                        <div><div class="kpi-val mono" style="color:var(--success);" id="s-rv">R$ 0</div><div style="font-size:11px;color:var(--muted);">Receita Inc.</div></div>
+                        <div><div class="kpi-val mono" style="color:var(--accent);" id="s-ri">0%</div><div style="font-size:11px;color:var(--muted);">ROI</div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Config -->
+        <section id="v-set" class="view">
+            <h2 style="font-size:18px;margin-bottom:16px;">Credenciais e Regras</h2>
+            <div class="glass" style="padding:32px;max-width:600px;display:flex;flex-direction:column;gap:20px;">
+                <div>
+                    <label style="font-size:12px;color:var(--muted);">Meta Ads Token</label>
+                    <input type="password" id="i-tk" class="input-box">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:var(--muted);">Ad Account ID</label>
+                    <input type="text" id="i-acc" class="input-box" placeholder="act_...">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:var(--muted);">Gemini AI Key</label>
+                    <input type="password" id="i-gem" class="input-box">
+                </div>
+                <div>
+                    <label style="font-size:12px;color:var(--muted);">Meta Diária de Leads (Para calcular Orçamento Ideal)</label>
+                    <input type="number" id="i-tgtld" class="input-box" value="50">
+                </div>
+                <div style="display:flex;gap:12px;margin-top:10px;">
+                    <button class="btn btn-outline" style="flex:1" onclick="App.test()"><i class="fa-solid fa-plug"></i> Testar</button>
+                    <button class="btn" style="flex:2" onclick="App.save()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+                </div>
+            </div>
+        </section>
+    </div>
+</main>
+
+<div class="modal-bg" id="md">
+    <div class="modal">
+        <div style="padding:20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;">
+            <h3 style="font-size:16px;" id="md-tt">Anúncios</h3>
+            <button class="btn-outline" style="border:none;" onclick="document.getElementById('md').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="glass" style="padding:16px;margin-bottom:16px;display:none;" id="md-ai">Analise..</div>
+            <table class="mono">
+                <thead><tr><th style="min-width:240px">Criativo e Texto</th><th>Anúncio</th><th>Gasto</th><th>Freq</th><th>CTR</th><th>Leads</th><th>CPL</th></tr></thead>
+                <tbody id="tb-ad"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+const U={
+    brl:v=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0),
+    num:v=>new Intl.NumberFormat('pt-BR').format(v||0),
+    pct:v=>(v>0?'+':'')+(v).toFixed(1)+'%',
+    ext:(arr,t)=>arr?.filter(a=>t.includes(a.action_type)).reduce((s,a)=>s+parseInt(a.value),0)||0
+};
+
+const App={
+    s: {
+        tk: localStorage.getItem('tf_tk')||'',
+        acc: localStorage.getItem('tf_acc')||'',
+        gem: localStorage.getItem('tf_gem')||'',
+        tgtLd: localStorage.getItem('tf_tgtld')||'50',
+        per: 'last_30d', cmp: false, st:'', en:'', cust:false,
+        dA:[], dB:[], cA:{}, dC:{}, ch:null, zl:0
+    },
+
+    ini(){
+        document.getElementById('i-tk').value=this.s.tk;
+        document.getElementById('i-acc').value=this.s.acc;
+        document.getElementById('i-gem').value=this.s.gem;
+        document.getElementById('i-tgtld').value=this.s.tgtLd;
+        if(!this.s.tk) this.v('set'); else { this.v('dash'); this.f(); setInterval(()=>this.alr(),300000); }
+    },
+    
+    v(id){
+        document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
+        if(document.getElementById(`v-${id}`)) document.getElementById(`v-${id}`).classList.add('active');
+        document.querySelectorAll('nav .nav-link').forEach(e=>{
+            if(e.getAttribute('onclick') && e.getAttribute('onclick').includes(`'${id}'`)) e.classList.add('active');
+            else e.classList.remove('active');
+        });
+        if(id==='exec')this.sim();
+    },
+
+    save(){
+        this.s.tk=document.getElementById('i-tk').value.trim();
+        let a=document.getElementById('i-acc').value.trim();
+        if(a&&!a.startsWith('act_'))a='act_'+a.replace(/\D/g,'');
+        this.s.acc=a;
+        this.s.gem=document.getElementById('i-gem').value.trim();
+        this.s.tgtLd=document.getElementById('i-tgtld').value||'50';
+        localStorage.setItem('tf_tk',this.s.tk);
+        localStorage.setItem('tf_acc',this.s.acc);
+        localStorage.setItem('tf_gem',this.s.gem);
+        localStorage.setItem('tf_tgtld',this.s.tgtLd);
+        this.v('dash'); this.f();
+    },
+
+    logout(){ if(confirm("Sair?")) { localStorage.clear(); location.reload(); } },
+
+    chgD(){ this.s.cmp=document.getElementById('chk-comp').checked; this.f(); },
+    setP(p){ 
+        document.querySelectorAll('.date-btn').forEach(b=>b.classList.remove('active'));
+        event.target.classList.add('active');
+        this.s.per=p; this.s.cust=false; this.f(); 
+    },
+    setCust(){
+        const st=document.getElementById('d-st').value, en=document.getElementById('d-en').value;
+        if(st&&en){ document.querySelectorAll('.date-btn').forEach(b=>b.classList.remove('active')); this.s.st=st; this.s.en=en; this.s.cust=true; this.f(); }
+    },
+
+    toast(msg,err=false){
+        const t=document.createElement('div'); t.className='toast';
+        if(err)t.style.borderLeftColor='var(--danger)'; t.innerHTML=msg;
+        document.body.appendChild(t); setTimeout(()=>t.remove(),3000);
+    },
+
+    async tst(){
+        if(!this.s.tk) return this.toast("Coloque token.",1);
+        try{
+            await fetch(`https://graph.facebook.com/v19.0/${this.s.acc}/insights?date_preset=today&access_token=${this.s.tk}`).then(r=>r.json()).then(j=>{if(j.error)throw j.error;});
+            this.toast("Sucesso!");
+        }catch(e){ this.toast(e.message,1); }
+    },
+
+    async fMeta(p,st,en){
+        const fl='campaign_name,campaign_id,spend,impressions,frequency,clicks,ctr,quality_ranking,actions,date_start';
+        let pm = (st&&en) ? `time_range={'since':'${st}','until':'${en}'}` : `date_preset=${p}`;
+        const u = `https://graph.facebook.com/v19.0/${this.s.acc}/insights?level=campaign&${pm}&time_increment=1&fields=${fl}&limit=500&access_token=${this.s.tk}`;
+        return fetch(u).then(r=>r.json()).then(j=>{ if(j.error)throw j.error; return j.data||[]; });
+    },
+
+    async f(){
+        try {
+            document.getElementById('st-badge').className='badge bg-warning'; document.getElementById('st-badge').innerText='SYNC...';
+            this.s.dA = await this.fMeta(this.s.per, this.s.cust?this.s.st:'', this.s.cust?this.s.en:'');
+            if(this.s.cmp){
+                const full = await this.fMeta(this.s.per==='last_7d'?'last_14d':'last_90d','','');
+                const pMin = [...new Set(this.s.dA.map(d=>d.date_start))].sort()[0];
+                if(pMin) this.s.dB = full.filter(d=>new Date(d.date_start)<new Date(pMin)).sort((a,b)=>new Date(b.date_start)-new Date(a.date_start));
+            } else this.s.dB = [];
+            
+            document.getElementById('st-badge').className='badge bg-success'; document.getElementById('st-badge').innerHTML='<i class="fa-solid fa-check"></i> OK';
+            document.getElementById('sync-lbl').innerText='Sinc: '+new Date().toLocaleTimeString();
+            this.proc();
+        }catch(e){ document.getElementById('st-badge').className='badge bg-danger'; document.getElementById('st-badge').innerText='ERRO'; this.toast(e.message,1); }
+    },
+
+    proc(){
+        const a = (raw) => {
+            let t={sp:0,ld:0,cv:0,rg:0,im:0,cl:0}, c={}, d={};
+            raw.forEach(r=>{
+                const sp=parseFloat(r.spend||0),im=parseInt(r.impressions||0),cl=parseInt(r.clicks||0),fq=parseFloat(r.frequency||0);
+                const ld=U.ext(r.actions,['lead']), cv=U.ext(r.actions,['onsite_conversion.messaging_conversation_started_7d']), rg=U.ext(r.actions,['complete_registration']);
+                t.sp+=sp; t.ld+=ld; t.cv+=cv; t.rg+=rg; t.im+=im; t.cl+=cl;
+                
+                if(!c[r.campaign_id]) c[r.campaign_id]={id:r.campaign_id,nm:r.campaign_name,sp:0,im:0,cl:0,ld:0,cv:0,rg:0,fq:0,qr:r.quality_ranking||''};
+                c[r.campaign_id].sp+=sp; c[r.campaign_id].ld+=ld; c[r.campaign_id].cv+=cv; c[r.campaign_id].rg+=rg; c[r.campaign_id].im+=im; c[r.campaign_id].fq=Math.max(c[r.campaign_id].fq,fq); c[r.campaign_id].cl+=cl;
+                
+                const ds=r.date_start; if(!d[ds]) d[ds]={sp:0,ld:0}; d[ds].sp+=sp; d[ds].ld+=ld;
+            });
+            return {t,c,d};
+        };
+
+        const pa=a(this.s.dA), pb=this.s.cmp?a(this.s.dB):null;
+        this.s.cA=pa.c; this.s.dC=pa.d;
+        
+        const ui=(id,v,vB,f)=>{
+            document.getElementById(id).innerText=f(v);
+            const el=document.getElementById(id.replace('v-','df-'));
+            if(el&&this.s.cmp) {
+                const df=((v-(vB||0))/(vB||1))*100;
+                el.innerText=U.pct(df); el.className='kpi-diff '+(df>0?'text-success':df<0?'text-danger':'text-muted');
+            } else if(el) el.innerText='';
+        };
+        
+        ui('v-sp',pa.t.sp,pb?.t.sp,U.brl); ui('v-ld',pa.t.ld,pb?.t.ld,U.num); ui('v-cv',pa.t.cv,pb?.t.cv,U.num); ui('v-rg',pa.t.rg,pb?.t.rg,U.num);
+        document.getElementById('v-cpl').innerText=`CPL: ${U.brl(pa.t.ld>0?pa.t.sp/pa.t.ld:0)}`;
+        this.chrt(pa.d, pb?.d);
+        this.tb(); this.alr(); this.sim();
+    },
+
+    chrt(da, db){
+        if(this.s.ch) this.s.ch.destroy();
+        let dt=Object.keys(da).sort();
+        if(this.s.zl) dt=dt.slice(-this.s.zl);
+        const lb=dt.map(x=>x.split('-').slice(1).reverse().join('/')), sp=dt.map(x=>da[x].sp), ld=dt.map(x=>da[x].ld);
+        
+        let ds = [
+            {label:'Leads', data:ld, yAxisID:'yl', fill:true, backgroundColor:'rgba(99,102,241,0.2)', borderColor:'#6366f1', tension:0.4, borderWidth:2},
+            {label:'Gasto', data:sp, yAxisID:'yg', borderColor:'rgba(255,255,255,0.8)', borderDash:[5,5], tension:0.4, borderWidth:2}
+        ];
+        
+        if(db){
+            const dtk=Object.keys(db).sort().slice(-lb.length);
+            ds.push({label:'Ld Ant',data:dtk.map(x=>db[x].ld),yAxisID:'yl',borderColor:'rgba(99,102,241,0.3)',tension:0.4,borderWidth:1});
+        }
+        
+        Chart.defaults.color='#71717a'; Chart.defaults.font.family='Inter';
+        this.s.ch=new Chart(document.getElementById('ch-main'), {
+            type:'line', data:{labels:lb, datasets:ds},
+            options:{
+                responsive:true,maintainAspectRatio:false,
+                interaction:{mode:'index',intersect:false},
+                plugins:{tooltip:{backgroundColor:'rgba(17,17,19,0.9)',padding:12,titleColor:'#fff',bodyFont:{family:'JetBrains Mono'}}},
+                scales:{
+                    x:{grid:{color:'rgba(255,255,255,0.05)'}},
+                    yl:{type:'linear',position:'right',grid:{color:'rgba(255,255,255,0.05)'}},
+                    yg:{type:'linear',position:'left',grid:{display:false}}
+                }
+            }
+        });
+    },
+    zoom(d){ this.s.zl=d; this.chrt(this.s.dC); },
+
+    tb(){
+        const arr=Object.values(this.s.cA).sort((a,b)=>b.sp-a.sp);
+        const b = document.getElementById('tb-camp');
+        if(!arr.length){ b.innerHTML='<tr><td colspan="9" align="center">Sem dados.</td></tr>'; return;}
+        const tl=parseInt(this.s.tgtLd)||1;
+        
+        b.innerHTML=arr.map(c=>{
+            const cpl=c.ld>0?c.sp/c.ld:0, ctr=c.im>0?(c.cl/c.im)*100:0;
+            const hl=Math.min(100, Math.max(0, (ctr*0.3)+(c.fq<3?30:0)+(cpl<20?40:0))); // score simples
+            const hC=hl>80?'var(--success)':hl>50?'var(--warning)':'var(--danger)';
+            const idl=cpl*tl; // gasto ideal para bater meta lead
+            
+            return `<tr style="cursor:pointer" onclick="App.oAd('${c.id}','${c.nm.replace(/'/g,"\\'")}')">
+                <td><div style="display:flex;align-items:center;"><div class="thumb-box" id="th-${c.id}"><i class="fa-solid fa-image text-muted"></i></div><div style="font-family:'Inter'">${c.nm}
+                <div style="font-size:10px;color:var(--muted)">Ideal: ${U.brl(idl)}/d</div></div></div></td>
+                <td style="width:100px"><div style="font-size:11px;margin-bottom:2px">${hl.toFixed(0)}/100</div><div class="health-bar"><div class="health-fill" style="width:${hl}%;background:${hC}"></div></div></td>
+                <td>${U.brl(c.sp)}</td><td>${U.num(c.im)}</td><td>${c.fq.toFixed(2)}</td><td>${ctr.toFixed(2)}%</td>
+                <td style="color:var(--accent);font-weight:700">${c.ld}</td><td>${c.cv}</td><td>${c.rg}</td><td>${U.brl(cpl)}</td>
+                <td onclick="event.stopPropagation();App.iAI('${c.id}','${c.nm.replace(/'/g,"\\'")}',${c.sp},${c.ld},${c.fq})"><button class="btn btn-outline" style="padding:4px 8px;font-size:11px"><i class="fa-solid fa-lightbulb text-warning"></i></button></td>
+            </tr>`;
+        }).join('');
+        
+        // Lazy thumbs via api cache bg
+        arr.forEach(c=>this.fThm(c.id, 'th-'+c.id));
+    },
+
+    async fThm(id, el){
+        if(localStorage.getItem('th_'+id)){ document.getElementById(el).innerHTML=`<img src="${localStorage.getItem('th_'+id)}">`; return; }
+        try{ // Busca a thumbnail de 1 anuncio da campanha pra capa
+            fetch(`https://graph.facebook.com/v19.0/${id}/ads?fields=adcreatives{thumbnail_url}&limit=1&access_token=${this.s.tk}`).then(r=>r.json()).then(j=>{
+                if(j.data?.[0]?.adcreatives?.data?.[0]?.thumbnail_url){
+                    const u = j.data[0].adcreatives.data[0].thumbnail_url;
+                    localStorage.setItem('th_'+id, u); document.getElementById(el).innerHTML=`<img src="${u}">`;
+                }
+            });
+        }catch(e){}
+    },
+
+    async oAd(id, nm){
+        document.getElementById('md-tt').innerText=nm; document.getElementById('tb-ad').innerHTML='<tr><td colspan="7">...</td></tr>';
+        document.getElementById('md-ai').style.display='none'; document.getElementById('md').style.display='flex';
+        
+        let prm = this.s.cust ? `time_range={'since':'${this.s.st}','until':'${this.s.en}'}` : `date_preset=${this.s.per}`;
+        fetch(`https://graph.facebook.com/v19.0/${id}/insights?level=ad&${prm}&fields=ad_id,ad_name,spend,impressions,clicks,frequency,actions&access_token=${this.s.tk}`).then(r=>r.json()).then(j=>{
+            if(!j.data||!j.data.length){ document.getElementById('tb-ad').innerHTML='<tr><td colspan="7">Vazio</td></tr>'; return; }
+            document.getElementById('tb-ad').innerHTML=j.data.map(a=>{
+                const sp=parseFloat(a.spend||0), ld=U.ext(a.actions,['lead']), ctr=a.impressions?(a.clicks/a.impressions)*100:0;
+                setTimeout(()=>this.fAdCr(a.ad_id), 100);
+                return `<tr>
+                    <td><div style="display:flex;gap:12px;align-items:start;"><div id="ad-cr-img-${a.ad_id}" style="width:80px;height:80px;background:#222;border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;"><i class="fa-solid fa-image"></i></div><div id="ad-cr-txt-${a.ad_id}" style="font-size:10px;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;">Buscando criativo...</div></div></td>
+                    <td style="font-weight:600">${a.ad_name}</td><td>${U.brl(sp)}</td><td>${parseFloat(a.frequency||0).toFixed(1)}</td><td>${ctr.toFixed(1)}%</td><td style="color:var(--accent);font-weight:700">${ld}</td><td>${U.brl(ld?sp/ld:0)}</td></tr>`;
+            }).join('');
+        });
+    },
+
+    fAdCr(ad_id){
+        fetch(`https://graph.facebook.com/v19.0/${ad_id}?fields=adcreatives{thumbnail_url,body}&access_token=${this.s.tk}`).then(r=>r.json()).then(j=>{
+            if(j.adcreatives?.data?.[0]){
+                const c = j.adcreatives.data[0];
+                if(c.thumbnail_url) document.getElementById(`ad-cr-img-${ad_id}`).innerHTML = `<img src="${c.thumbnail_url}" style="width:100%;height:100%;object-fit:cover">`;
+                if(c.body) document.getElementById(`ad-cr-txt-${ad_id}`).innerText = c.body;
+                else document.getElementById(`ad-cr-txt-${ad_id}`).innerText = "Sem texto";
+            } else {
+                document.getElementById(`ad-cr-txt-${ad_id}`).innerText = "Criativo não disponível";
+            }
+        }).catch(e=>{});
+    },
+
+    alr(){
+        const t=document.getElementById('al-feed'); if(!t)return; let h='';
+        Object.values(this.s.cA).forEach(c=>{
+            if(c.fq>3.2 && c.sp>50) h+=`<div class="ai-tip border-warning"><i class="fa-solid fa-triangle-exclamation text-warning"></i> Frequência subindo rápido em <b>${c.nm}</b> (${c.fq.toFixed(2)}). Prepare novos criativos.</div>`;
+            if(c.im>0 && (c.cl/c.im)*100 < 0.5 && c.sp>50) h+=`<div class="ai-tip border-danger"><i class="fa-solid fa-arrow-trend-down text-danger"></i> CTR em queda livre em <b>${c.nm}</b>. Revisar público.</div>`;
+        });
+        t.innerHTML=h||'Tudo OK!';
+    },
+
+    sim(){
+        const arr=Object.values(this.s.cA).filter(c=>c.ld>0).sort((a,b)=>a.sp/a.ld - b.sp/b.ld);
+        const ref = arr.slice(0,3).reduce((s,a)=>s+(a.sp/a.ld),0) / Math.min(arr.length||1, 3) || 20;
+        document.getElementById('s-cpl').innerText=U.brl(ref);
+        const add=parseFloat(document.getElementById('s-bdg').value||0), tk=parseFloat(document.getElementById('s-tk').value||0), tx=parseFloat(document.getElementById('s-tx').value||0);
+        const l=Math.floor(add/ref), sl=Math.floor(l*(tx/100)), rv=sl*tk, ro=add>0?((rv/add)-1)*100:0;
+        document.getElementById('s-ld').innerText='+'+l; document.getElementById('s-sl').innerText='+'+sl; document.getElementById('s-rv').innerText=U.brl(rv); document.getElementById('s-ri').innerText=ro.toFixed(0)+'%';
+    },
+
+    async iAI(id, nm, sp, ld, fq){
+        if(!this.s.gem) return this.toast("Coloque API Key Gemini",1);
+        this.toast("<i class='fa-solid fa-microchip'></i> Analisando "+nm+"...");
+        const p = `Campanha: ${nm}, Gastou R$${sp}, Leads: ${ld}, CPL: R$${sp/(ld||1)}, Freq: ${fq}. Crie APENAS 1 frase de sugestão cirúrgica de escala. Sem frufru.`;
+        try{
+            const u = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${this.s.gem}`;
+            const r = await fetch(u, {method:'POST', body:JSON.stringify({contents:[{parts:[{text:p}]}]})}).then(r=>r.json());
+            const tx = r.candidates[0].content.parts[0].text;
+            document.getElementById('md-tt').innerText=nm; document.getElementById('tb-ad').innerHTML=''; document.getElementById('md').style.display='flex';
+            const m = document.getElementById('md-ai'); m.style.display='block'; m.innerHTML=`<i class="fa-solid fa-wand-magic-sparkles text-accent"></i> <b>IA Insight:</b> ${tx.replace(/`|html/g,'')}`;
+        }catch(e){this.toast("Erro IA",1)}
+    },
+
+    expCSV(t){
+        if(!window.Papa)return; 
+        const a=Object.values(this.s.cA).map(c=>({Camp:c.nm, Gasto:c.sp, Leads:c.ld, CPL:c.ld?c.sp/c.ld:0, Freq:c.fq}));
+        const blob=new Blob([Papa.unparse(a)],{type:'text/csv'}); 
+        const u=URL.createObjectURL(blob); const l=document.createElement('a'); l.href=u; l.download='export.csv'; l.click();
+    },
+
+    expPDF(){
+        if(!window.jspdf)return this.toast("Aguarde jsPDF",1);
+        this.toast("<i class='fa-solid fa-spinner fa-spin'></i> Gerando PDF...");
+        html2canvas(document.getElementById('pdf-root'),{backgroundColor:'#0a0a0c'}).then(c=>{
+            const img=c.toDataURL('image/png'); const pdf=new jspdf.jsPDF('l','mm','a4');
+            const wp=pdf.internal.pageSize.getWidth(), hp=(c.height*wp)/c.width;
+            pdf.addImage(img,'PNG',0,0,wp,hp); pdf.save('Trackfy-Report.pdf');
+        });
+    }
+};
+
+window.onload=()=>App.ini();
+</script>
+</body>
+</html>
