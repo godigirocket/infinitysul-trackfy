@@ -24,7 +24,6 @@ export const fetchMetaInsights = async (
   const fields = [
     "campaign_name",
     "campaign_id",
-    "campaign_status",
     "ad_id",
     "ad_name",
     "spend",
