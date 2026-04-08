@@ -6,9 +6,12 @@ export interface MetaAction {
 export interface MetaInsight {
   campaign_id: string;
   campaign_name: string;
-  campaign_status?: string;
+  adset_id?: string;
+  adset_name?: string;
   ad_id?: string;
   ad_name?: string;
+  objective?: string;
+  account_currency?: string;
   spend: string;
   impressions: string;
   frequency?: string;
@@ -21,8 +24,19 @@ export interface MetaInsight {
   video_p25_watched_actions?: MetaAction[];
   video_p50_watched_actions?: MetaAction[];
   video_p75_watched_actions?: MetaAction[];
+  video_p100_watched_actions?: MetaAction[];
   video_avg_time_watched_actions?: MetaAction[];
   date_start: string;
+  hourly_stats_aggregated_by_audience_time_zone?: string;
+}
+
+/** A MetaInsight row enriched with a breakdown dimension (age, gender, placement, platform) */
+export interface BreakdownInsight extends MetaInsight {
+  age?: string;                   // e.g. "35-44"
+  gender?: string;                // "male" | "female" | "unknown"
+  publisher_platform?: string;    // "facebook" | "instagram" | "audience_network"
+  platform_position?: string;     // "feed" | "story" | "reels"
+  region?: string;                // e.g. "California" | "São Paulo"
 }
 
 export interface CRMLead {
@@ -37,10 +51,6 @@ export interface AppState {
   token: string;
   accountId: string;
   geminiKey: string;
-  targetLeads: number;
-  targetCPA: number;
-  productPrice: number;
-  monthlyBudget: number;
   isDirectorMode: boolean;
   annotations: Record<string, string>;
   campaignTags: Record<string, string[]>;
@@ -51,16 +61,30 @@ export interface AppState {
   isCompare: boolean;
   dataA: MetaInsight[];
   dataB: MetaInsight[];
+  dataAds: MetaInsight[];
   hourlyDataA: MetaInsight[];
   hourlyDataB: MetaInsight[];
+  ageBreakdownA: BreakdownInsight[];
+  genderBreakdownA: BreakdownInsight[];
+  placementBreakdownA: BreakdownInsight[];
+  regionBreakdownA: BreakdownInsight[];
+  biData: any[]; // External BI records (CSV/Sheets)
   searchQuery: string;
   statusFilter: string;
   selectedCampaigns: string[];
+  selectedAdSets: string[];
+  selectedAds: string[];
+  statusFilters: string[];
+  objectiveFilters: string[];
+  placementFilters: string[];
+  ageFilters: string[];
+  genderFilters: string[];
   isLoading: boolean;
   lastSync: string | null;
-  intelProductFilter: string;  // Dynamic — auto-populated from campaign names
+  intelProductFilter: string;
   intelCampaignFilter: string;
-  intelSignalFilter: string;   // 'all' | 'scale' | 'monitor' | 'optimize'
+  intelSignalFilter: string;
+  hierarchy: AccountHierarchy | null;
 }
 
 export interface AdCreative {
@@ -99,4 +123,14 @@ export interface IntelFilters {
   products: string[];     // Auto-parsed from campaign names
   campaigns: string[];    // All campaign names
   placements: string[];   // From Meta breakdowns (future)
+}
+
+export interface CampaignStatus { id: string; name: string; effective_status: string; objective?: string; }
+export interface AdSetStatus { id: string; name: string; effective_status: string; campaign_id: string; }
+export interface AdStatus { id: string; name: string; effective_status: string; adset_id: string; campaign_id: string; adcreatives?: { data: any[] }; }
+
+export interface AccountHierarchy {
+  campaigns: CampaignStatus[];
+  adsets: AdSetStatus[];
+  ads: AdStatus[];
 }

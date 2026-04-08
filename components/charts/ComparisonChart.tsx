@@ -2,7 +2,7 @@
 
 import { useAppStore } from "@/store/useAppStore";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
-import { formatCurrency } from "@/lib/formatters";
+import { formatCurrency, extractMetric } from "@/lib/formatters";
 import { useMemo } from "react";
 
 export function ComparisonChart() {
@@ -16,7 +16,7 @@ export function ComparisonChart() {
       const date = item.date_start;
       if (!map[index]) map[index] = { index, dateA: date, spendA: 0, leadsA: 0 };
       map[index].spendA += parseFloat(item.spend || "0");
-      map[index].leadsA += item.actions?.find(a => a.action_type === 'lead')?.value ? parseInt(item.actions.find(a => a.action_type === 'lead')!.value) : 0;
+      map[index].leadsA += extractMetric(item.actions, ['lead']);
       
       if (annotations[date]) map[index].note = annotations[date];
     });
@@ -25,7 +25,7 @@ export function ComparisonChart() {
       if (!map[index]) map[index] = { index, dateB: item.date_start, spendB: 0, leadsB: 0 };
       map[index].dateB = item.date_start;
       map[index].spendB = (map[index].spendB || 0) + parseFloat(item.spend || "0");
-      map[index].leadsB = (map[index].leadsB || 0) + (item.actions?.find(a => a.action_type === 'lead')?.value ? parseInt(item.actions.find(a => a.action_type === 'lead')!.value) : 0);
+      map[index].leadsB = (map[index].leadsB || 0) + extractMetric(item.actions, ['lead']);
     });
 
     return Object.values(map);

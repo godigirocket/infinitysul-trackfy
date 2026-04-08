@@ -4,29 +4,28 @@ import { useAppStore } from "@/store/useAppStore";
 import { Search, Filter, X } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { DateRangePicker } from "@/components/intelligence/DateRangePicker";
 
 export function DashboardFilters() {
   const { 
     searchQuery, setSearchQuery, 
     statusFilter, setStatusFilter,
     selectedCampaigns, setSelectedCampaigns,
-    targetCPA, setTargetCPA,
-    productPrice, setProductPrice,
-    monthlyBudget, setMonthlyBudget,
-    dataA 
+    setPeriod 
   } = useAppStore();
 
   const handleClear = () => {
     setSearchQuery("");
     setStatusFilter("all");
     setSelectedCampaigns([]);
+    setPeriod("last_30d");
   };
 
   const hasFilters = searchQuery || statusFilter !== "all" || selectedCampaigns.length > 0;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-md">
+    <div className="space-y-4 relative z-[90]">
+      <div className="flex flex-wrap items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-md relative z-[90]">
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
           <input
@@ -48,6 +47,8 @@ export function DashboardFilters() {
           <option value="paused" className="bg-[#0a0a0c]">⚪ Pausadas</option>
         </select>
 
+        <DateRangePicker />
+
         {hasFilters && (
           <Button 
             variant="outline" 
@@ -61,36 +62,6 @@ export function DashboardFilters() {
         )}
       </div>
 
-      {/* Advanced Config Row */}
-      <div className="flex flex-wrap items-center gap-4 px-2">
-        <div className="flex flex-col gap-1">
-          <label className="text-[9px] font-bold text-muted uppercase ml-1">Meta CPA (R$)</label>
-          <input
-            type="number"
-            value={targetCPA}
-            onChange={(e) => setTargetCPA(parseFloat(e.target.value))}
-            className="w-24 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs focus:ring-1 focus:ring-accent outline-none font-bold"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-[9px] font-bold text-muted uppercase ml-1">Preço Ticket (R$)</label>
-          <input
-            type="number"
-            value={productPrice}
-            onChange={(e) => setProductPrice(parseFloat(e.target.value))}
-            className="w-24 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs focus:ring-1 focus:ring-accent outline-none font-bold"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-[9px] font-bold text-muted uppercase ml-1">Verba Mensal (R$)</label>
-          <input
-            type="number"
-            value={monthlyBudget}
-            onChange={(e) => setMonthlyBudget(parseFloat(e.target.value))}
-            className="w-32 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs focus:ring-1 focus:ring-accent outline-none font-bold"
-          />
-        </div>
-      </div>
     </div>
   );
 }

@@ -20,7 +20,7 @@ const navigation = [
   { name: "Central de Inteligência", href: "/intelligence", icon: Brain },
   { name: "Análise Visual", href: "/campaigns/creatives", icon: Zap },
   { name: "Gestão VIP/CRM", href: "/crm", icon: Target },
-  { name: "Simulador", href: "/simulator", icon: BarChart2 },
+  { name: "ROI por Produto", href: "/simulator", icon: BarChart2 },
   { name: "Configurações", href: "/settings", icon: Settings },
 ];
 
@@ -30,7 +30,7 @@ export function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 w-64 bg-surface border-r border-white/5 p-6 flex flex-col z-50">
       <div className="flex items-center gap-3 mb-10 px-2 relative">
-        <div className="bg-accent rounded-lg p-1.5 shadow-[0_0_20px_rgba(99,102,241,0.3)]">
+        <div className="bg-accent rounded-lg p-1.5 shadow-sm">
           <Zap className="w-5 h-5 text-white" fill="white" />
         </div>
         <div className="flex flex-col">
@@ -55,10 +55,10 @@ export function Sidebar() {
               key={item.name}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-3 py-3 rounded-xl text-xs font-bold transition-all duration-300 group relative",
+                "flex items-center gap-3 px-3 py-3 rounded-xl text-xs font-bold transition-all duration-200 group relative",
                 isActive 
-                  ? "bg-accent/10 text-accent border border-accent/10" 
-                  : "text-muted hover:text-text hover:bg-white/5 border border-transparent"
+                  ? "bg-white/5 text-white border border-white/5" 
+                  : "text-muted hover:text-text hover:bg-white/[0.02] border border-transparent"
               )}
             >
               <item.icon className={cn(
@@ -68,7 +68,7 @@ export function Sidebar() {
               {item.name}
               
               {isActive && (
-                <div className="absolute left-[-24px] w-1 h-4 bg-accent rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                <div className="absolute right-0 w-1 h-3 bg-accent rounded-full" />
               )}
             </Link>
           );

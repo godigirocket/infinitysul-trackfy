@@ -7,7 +7,7 @@ import { Users, DollarSign, Target, TrendingUp, Sparkles } from "lucide-react";
 import { useMemo } from "react";
 
 export default function CRMPage() {
-  const { crmLeads, dataA, monthlyBudget } = useAppStore();
+  const { crmLeads, dataA } = useAppStore();
 
   const crmStats = useMemo(() => {
     const totalLeads = crmLeads.length;

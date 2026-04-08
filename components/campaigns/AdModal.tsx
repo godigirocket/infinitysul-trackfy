@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { fetchMetaInsights, fetchAdCreatives } from "@/services/metaApi";
+import { fetchMetaInsights, fetchAdThumbnails } from "@/services/metaApi";
 import { 
   formatCurrency, 
   formatPercent, 
@@ -49,8 +49,8 @@ export function AdModal({ id, name, isOpen, onClose }: AdModalProps) {
 
           // Fetch creatives for each ad
           data.forEach(async (ad: any) => {
-            const cr = await fetchAdCreatives(ad.ad_id, token);
-            if (cr) setCreatives((prev) => ({ ...prev, [ad.ad_id]: cr }));
+            const url = await fetchAdThumbnails(ad.ad_id, token);
+            if (url) setCreatives((prev) => ({ ...prev, [ad.ad_id]: { thumbnail_url: url } }));
           });
         } catch (e) {
           console.error(e);

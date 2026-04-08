@@ -29,31 +29,29 @@ ChartJS.register(
 );
 
 export function MainChart() {
-  const { dataA, dataB, isCompare, searchQuery, statusFilter } = useAppStore();
+  const { dataA, dataB, isCompare, searchQuery } = useAppStore();
 
   if (isCompare && dataB.length > 0) {
     return <ComparisonChart />;
   }
 
-  const filterItem = (item: any) => {
-    const matchesSearch = item.campaign_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          item.ad_name?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === "all" || 
-                          (statusFilter === "active" && item.campaign_status === "ACTIVE") ||
-                          (statusFilter === "paused" && item.campaign_status === "PAUSED");
-
-    return matchesSearch && matchesStatus;
-  };
-
   const getDaily = (data: any[]) => {
     const daily: Record<string, { spend: number; leads: number }> = {};
     data.forEach(r => {
-      if (!filterItem(r)) return;
+      // Only filter by search — remove the broken status filter
+      const matchesSearch = !searchQuery || 
+        (r.campaign_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (r.ad_name || "").toLowerCase().includes(searchQuery.toLowerCase());
+      if (!matchesSearch) return;
+
       const ds = r.date_start;
+      if (!ds) return;
       if (!daily[ds]) daily[ds] = { spend: 0, leads: 0 };
-      daily[ds].spend += parseFloat(r.spend || 0);
-      daily[ds].leads += extractMetric(r.actions, ['lead']);
+      daily[ds].spend += parseFloat(r.spend || "0");
+      daily[ds].leads += extractMetric(r.actions, [
+        'lead', 'leadgen.other', 'offsite_conversion.fb_pixel_lead',
+        'complete_registration'
+      ]);
     });
     return daily;
   };
@@ -67,20 +65,29 @@ export function MainChart() {
 
   const datasets = [
     {
-      label: "Leads (Atual)",
+      label: "Leads",
       data: leadsA,
       borderColor: "#6366f1",
-      backgroundColor: "rgba(99, 102, 241, 0.1)",
+      backgroundColor: "rgba(99, 102, 241, 0.15)",
       fill: true,
       tension: 0.4,
+      pointRadius: 4,
+      pointHoverRadius: 7,
+      pointBackgroundColor: "#6366f1",
+      pointBorderColor: "#6366f1",
+      borderWidth: 3,
       yAxisID: "yL",
     },
     {
-      label: "Gasto (Atual)",
+      label: "Investimento (R$)",
       data: spendA,
-      borderColor: "rgba(255, 255, 255, 0.8)",
+      borderColor: "rgba(255, 255, 255, 0.5)",
+      backgroundColor: "rgba(255, 255, 255, 0.03)",
+      fill: true,
       borderDash: [5, 5],
       tension: 0.4,
+      pointRadius: 2,
+      borderWidth: 1.5,
       yAxisID: "yG",
     },
   ];
@@ -94,35 +101,55 @@ export function MainChart() {
     },
     plugins: {
       legend: {
-        display: false,
+        display: true,
+        position: "top" as const,
+        labels: {
+          color: "rgba(255,255,255,0.5)",
+          font: { size: 10, weight: "bold" as const },
+          padding: 20,
+          usePointStyle: true,
+          pointStyle: "circle" as const,
+        },
       },
       tooltip: {
         backgroundColor: "#111113",
-        padding: 12,
-        titleFont: { weight: "bold" as const },
-        bodyFont: { family: "'JetBrains Mono'" },
-        borderColor: "rgba(255,255,255,0.05)",
+        padding: 16,
+        titleFont: { weight: "bold" as const, size: 12 },
+        bodyFont: { family: "'JetBrains Mono'", size: 11 },
+        borderColor: "rgba(255,255,255,0.1)",
         borderWidth: 1,
+        cornerRadius: 12,
+        displayColors: true,
+        callbacks: {
+          label: (ctx: any) => {
+            if (ctx.dataset.yAxisID === "yG") {
+              return ` Investimento: R$ ${ctx.raw.toFixed(2)}`;
+            }
+            return ` Leads: ${ctx.raw}`;
+          }
+        }
       },
     },
     scales: {
       x: {
         grid: { display: false },
-        ticks: { color: "#71717a", font: { size: 10 } },
+        ticks: { color: "#71717a", font: { size: 10 }, maxRotation: 45 },
       },
       yL: {
         type: "linear" as const,
         display: true,
         position: "right" as const,
-        grid: { color: "rgba(255,255,255,0.05)" },
-        ticks: { color: "#6366f1", font: { size: 10 } },
+        grid: { color: "rgba(99, 102, 241, 0.08)" },
+        ticks: { color: "#6366f1", font: { size: 10, weight: "bold" as const } },
+        title: { display: true, text: "Leads", color: "#6366f1", font: { size: 10 } }
       },
       yG: {
         type: "linear" as const,
         display: true,
         position: "left" as const,
         grid: { display: false },
-        ticks: { color: "#71717a", font: { size: 10 } },
+        ticks: { color: "#71717a", font: { size: 10 }, callback: (v: any) => `R$${v}` },
+        title: { display: true, text: "Investimento", color: "#71717a", font: { size: 10 } }
       },
     },
   };

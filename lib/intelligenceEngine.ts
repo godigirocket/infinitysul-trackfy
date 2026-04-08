@@ -1,5 +1,5 @@
 import { MetaInsight, CampaignIntel, IntelFilters } from "@/types";
-import { extractMetric } from "./formatters";
+import { extractMetric, LEAD_ACTION_TYPES, CONVERSATION_ACTION_TYPES } from "./formatters";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DYNAMIC PRODUCT PARSER
@@ -35,6 +35,11 @@ export function parseProductFromCampaign(name: string): string {
     const lc = t.toLowerCase();
     if (stopWords.has(lc)) return false;
     if (/^\d+$/.test(t)) return false; // pure number
+
+    // Explicit check for known products
+    const knownProducts = ["bradesco", "hapvida", "amil", "unimed", "sulamerica", "notredame", "intermedica", "saude", "odontoprev"];
+    if (knownProducts.includes(lc)) return true;
+
     // Must start with uppercase or be known brand pattern
     return /^[A-ZÀ-Ú]/.test(t) || t.length >= 4;
   });
@@ -100,11 +105,8 @@ function aggregateByCampaign(data: MetaInsight[]): Map<string, {
     c.spend += parseFloat(row.spend || "0");
     c.impressions += parseInt(row.impressions || "0");
     c.clicks += parseInt(row.clicks || "0");
-    c.leads += extractMetric(row.actions, ["lead", "leadgen.other"]);
-    c.conversations += extractMetric(row.actions, [
-      "onsite_conversion.messaging_conversation_started_7d",
-      "onsite_conversion.messaging_first_reply",
-    ]);
+    c.leads += extractMetric(row.actions, LEAD_ACTION_TYPES);
+    c.conversations += extractMetric(row.actions, CONVERSATION_ACTION_TYPES);
     c.frequency = Math.max(c.frequency, parseFloat(row.frequency || "0"));
     c.rows += 1;
   });
@@ -126,17 +128,17 @@ function generateSignal(
   spend: number,
   funnelDrop: number
 ): { signal: CampaignIntel["signal"]; reason: string } {
+  // Bad: No leads despite meaningful spend
+  if (spend > 50 && leads === 0) {
+    return { signal: "optimize", reason: "Gasto contínuo sem geração de leads" };
+  }
   // Critical: High CPL + High Frequency = Audience fatigue
-  if (cpl > avgCpl * 1.4 && frequency > 3.5) {
+  if (cpl > 0 && avgCpl > 0 && cpl > avgCpl * 1.4 && frequency > 3.5) {
     return { signal: "optimize", reason: "CPL elevado + audiência saturada (freq > 3.5)" };
   }
   // Bad: Very high CPL
-  if (cpl > avgCpl * 1.35) {
+  if (cpl > 0 && avgCpl > 0 && cpl > avgCpl * 1.35) {
     return { signal: "optimize", reason: `CPL ${((cpl / avgCpl - 1) * 100).toFixed(0)}% acima da média` };
-  }
-  // Bad: No leads despite meaningful spend
-  if (spend > 50 && leads === 0) {
-    return { signal: "optimize", reason: "Gasto sem geração de leads" };
   }
   // Scale: Low CPL, generating leads
   if (cpl < avgCpl * 0.8 && leads >= 3) {
@@ -166,7 +168,7 @@ export function runIntelligence(data: MetaInsight[]): CampaignIntel[] {
   const avgCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
 
   return campaigns.map((c) => {
-    const cpl = c.leads > 0 ? c.spend / c.leads : c.spend > 0 ? 9999 : 0;
+    const cpl = c.leads > 0 ? c.spend / c.leads : 0;
     const ctr = c.impressions > 0 ? (c.clicks / c.impressions) * 100 : 0;
     const funnelDrop = c.clicks > 0 ? ((c.clicks - c.leads) / c.clicks) * 100 : 100;
     const cplVsAvg = avgCpl > 0 ? ((cpl - avgCpl) / avgCpl) * 100 : 0;

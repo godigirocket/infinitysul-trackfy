@@ -1,172 +1,225 @@
 "use client";
 
 import { useAppStore } from "@/store/useAppStore";
+import { useMemo } from "react";
+import { formatCurrency, formatNumber, extractMetric } from "@/lib/formatters";
 import { 
-  formatCurrency, 
-  formatPercent, 
-  extractMetric, 
-  formatNumber 
-} from "@/lib/formatters";
-import { Input } from "@/components/ui/Input";
-import { useState, useEffect } from "react";
-import { 
-  TrendingUp, 
-  ArrowRight, 
-  Target, 
-  Coins, 
-  BadgePercent,
-  CheckCircle2
+  DollarSign, TrendingUp, Users, Target, 
+  ArrowUpRight, ArrowDownRight, BarChart3, ShieldCheck
 } from "lucide-react";
-import { Badge } from "@/components/ui/Badge";
-import { cn } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 
-export default function SimulatorPage() {
-  const { dataA } = useAppStore();
-  
-  const [budget, setBudget] = useState(1000);
-  const [ticket, setTicket] = useState(297);
-  const [conversion, setConversion] = useState(5);
+interface ProductROI {
+  product: string;
+  spend: number;
+  leads: number;
+  cpl: number;
+  sales: number;
+  revenue: number;
+  roas: number;
+}
 
-  const [topCpl, setTopCpl] = useState(20);
+export default function ProductROIPage() {
+  const { dataA, crmLeads, biData } = useAppStore();
 
-  useEffect(() => {
-    const campaignMap: Record<string, any> = {};
-    dataA.forEach((r) => {
-      const id = r.campaign_id;
-      if (!campaignMap[id]) {
-        campaignMap[id] = { id, spend: 0, leads: 0 };
+  const products = useMemo((): ProductROI[] => {
+    // Aggregate Meta spend by product from campaign names
+    const productMap: Record<string, { spend: number; leads: number }> = {};
+
+    const tokens: Record<string, string> = {
+      bradesco: "Bradesco", hapvida: "Hapvida", amil: "Amil",
+      unimed: "Unimed", sulamerica: "SulAmérica", porto: "Porto Seguro",
+      notredame: "NotreDame", prevent: "Prevent Senior",
+      sao: "São Cristóvão", golden: "Golden Cross",
+    };
+
+    dataA.forEach(row => {
+      const name = (row.campaign_name || "").toLowerCase();
+      let product = "Outros";
+      for (const [key, label] of Object.entries(tokens)) {
+        if (name.includes(key)) { product = label; break; }
       }
-      campaignMap[id].spend += parseFloat(r.spend || "0");
-      campaignMap[id].leads += extractMetric(r.actions, ["lead"]);
+
+      if (!productMap[product]) productMap[product] = { spend: 0, leads: 0 };
+      productMap[product].spend += parseFloat(row.spend || "0");
+      productMap[product].leads += extractMetric(row.actions, [
+        "lead", "leadgen.other", "offsite_conversion.fb_pixel_lead", "complete_registration"
+      ]);
     });
 
-    const active = Object.values(campaignMap).filter((c: any) => c.leads > 0);
-    active.sort((a: any, b: any) => (a.spend / a.leads) - (b.spend / b.leads));
-    
-    if (active.length > 0) {
-      const top3 = active.slice(0, 3);
-      const totalS = top3.reduce((acc, c: any) => acc + c.spend, 0);
-      const totalL = top3.reduce((acc, c: any) => acc + c.leads, 0);
-      setTopCpl(totalS / totalL);
-    }
-  }, [dataA]);
+    // Merge CRM sales data
+    const salesMap: Record<string, { sales: number; revenue: number }> = {};
+    crmLeads.filter(l => l.status === "converted").forEach((lead: any) => {
+      const product = lead.product || "Outros";
+      if (!salesMap[product]) salesMap[product] = { sales: 0, revenue: 0 };
+      salesMap[product].sales += 1;
+      salesMap[product].revenue += lead.sale_value || 0;
+    });
 
-  const projectedLeads = Math.floor(budget / topCpl);
-  const projectedSales = Math.floor(projectedLeads * (conversion / 100));
-  const incrementalRevenue = projectedSales * ticket;
-  const incrementalRoi = budget > 0 ? ((incrementalRevenue / budget) - 1) * 100 : 0;
+    // Merge BI data
+    biData.forEach((row: any) => {
+      const product = row.product || "Outros";
+      if (!salesMap[product]) salesMap[product] = { sales: 0, revenue: 0 };
+      salesMap[product].sales += row.sales || 0;
+      salesMap[product].revenue += row.revenue || 0;
+    });
+
+    // Combine
+    const allProducts = new Set([...Object.keys(productMap), ...Object.keys(salesMap)]);
+    const results: ProductROI[] = [];
+
+    allProducts.forEach(product => {
+      const meta = productMap[product] || { spend: 0, leads: 0 };
+      const sales = salesMap[product] || { sales: 0, revenue: 0 };
+      results.push({
+        product,
+        spend: meta.spend,
+        leads: meta.leads,
+        cpl: meta.leads > 0 ? meta.spend / meta.leads : 0,
+        sales: sales.sales,
+        revenue: sales.revenue,
+        roas: meta.spend > 0 ? sales.revenue / meta.spend : 0,
+      });
+    });
+
+    return results.sort((a, b) => b.revenue - a.revenue);
+  }, [dataA, crmLeads, biData]);
+
+  const totals = useMemo(() => {
+    return products.reduce((acc, p) => ({
+      spend: acc.spend + p.spend,
+      leads: acc.leads + p.leads,
+      sales: acc.sales + p.sales,
+      revenue: acc.revenue + p.revenue,
+    }), { spend: 0, leads: 0, sales: 0, revenue: 0 });
+  }, [products]);
+
+  const realROAS = totals.spend > 0 ? totals.revenue / totals.spend : 0;
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Simulador de Escala</h1>
-          <p className="text-sm text-muted">Projete o faturamento com base no seu CPL campeão.</p>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/40">
+            ROI Real por Produto
+          </h1>
+          <p className="text-xs sm:text-sm text-muted">Meta Ads × Vendas Reais — qual plano dá mais lucro?</p>
         </div>
-        <Badge variant="secondary" className="px-3 py-1 gap-2 font-bold mono bg-accent/10 border-accent/20 text-accent">
-          <CheckCircle2 className="w-3 h-3" />
-          Algoritmo Baseado em Top 3 Campanhas
-        </Badge>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-success/10 border border-success/20 rounded-lg w-fit">
+          <ShieldCheck className="w-4 h-4 text-success" />
+          <span className="text-[10px] font-bold text-success uppercase tracking-widest">
+            {products.length} Produtos • {totals.sales} Vendas
+          </span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="glass p-8 space-y-8 h-fit">
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <Coins className="w-4 h-4 text-muted" />
-              <label className="text-[11px] font-bold text-muted uppercase tracking-wider">Orçamento Adicional (R$)</label>
+      {/* Top-level KPIs */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {[
+          { label: "Investimento Total", value: formatCurrency(totals.spend), icon: DollarSign, color: "text-white" },
+          { label: "Faturamento Real", value: formatCurrency(totals.revenue), icon: TrendingUp, color: "text-success" },
+          { label: "Leads Gerados", value: formatNumber(totals.leads), icon: Users, color: "text-accent" },
+          { label: "ROAS Real", value: `${realROAS.toFixed(2)}x`, icon: Target, color: realROAS >= 1 ? "text-success" : "text-danger" },
+        ].map(kpi => (
+          <div key={kpi.label} className="glass p-4 sm:p-5 group hover:scale-[1.02] transition-all">
+            <div className="flex items-center gap-2 mb-3">
+              <kpi.icon className={cn("w-4 h-4", kpi.color)} />
+              <span className="text-[9px] sm:text-[10px] font-bold text-muted uppercase tracking-widest">{kpi.label}</span>
             </div>
-            <Input 
-              type="number" 
-              value={budget} 
-              onChange={(e) => setBudget(parseFloat(e.target.value) || 0)}
-              className="text-lg font-bold mono h-12"
-            />
+            <span className={cn("text-lg sm:text-2xl font-black mono", kpi.color)}>{kpi.value}</span>
           </div>
+        ))}
+      </div>
 
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <Target className="w-4 h-4 text-muted" />
-              <label className="text-[11px] font-bold text-muted uppercase tracking-wider">Ticket Médio (R$)</label>
-            </div>
-            <Input 
-              type="number" 
-              value={ticket} 
-              onChange={(e) => setTicket(parseFloat(e.target.value) || 0)}
-              className="text-lg font-bold mono h-12"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <BadgePercent className="w-4 h-4 text-muted" />
-              <label className="text-[11px] font-bold text-muted uppercase tracking-wider">Taxa de Venda (%)</label>
-            </div>
-            <Input 
-              type="number" 
-              value={conversion} 
-              onChange={(e) => setConversion(parseFloat(e.target.value) || 0)}
-              className="text-lg font-bold mono h-12"
-            />
+      {/* Product breakdown table */}
+      <div className="glass overflow-hidden">
+        <div className="p-4 sm:p-6 border-b border-white/5">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-accent" />
+            <h3 className="text-xs font-bold text-white uppercase tracking-widest">Desempenho por Produto / Operadora</h3>
           </div>
         </div>
 
-        <div className="lg:col-span-2 glass p-10 flex flex-col justify-center items-center text-center relative overflow-hidden bg-white/[0.01]">
-          {/* Projections */}
-          <div className="w-full max-w-2xl space-y-12">
-             <div className="flex items-center justify-center gap-6 mb-4">
-                <span className="text-xs font-bold text-muted uppercase tracking-widest leading-loose">
-                  Baseado no CPL Médio Atual:
-                </span>
-                <span className="text-xl font-bold mono text-white px-4 py-2 bg-white/5 rounded-xl border border-white/5 shadow-inner">
-                  {formatCurrency(topCpl)}
-                </span>
-             </div>
-
-             <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
-                <div className="space-y-2">
-                   <div className="text-3xl font-bold mono">+{formatNumber(projectedLeads)}</div>
-                   <p className="text-[10px] font-bold text-muted uppercase">Novos Leads</p>
-                </div>
-                <div className="space-y-2">
-                   <div className="text-3xl font-bold mono">+{formatNumber(projectedSales)}</div>
-                   <p className="text-[10px] font-bold text-muted uppercase">Vendas/+</p>
-                </div>
-                <div className="space-y-2">
-                   <div className="text-4xl font-bold mono text-success">{formatCurrency(incrementalRevenue)}</div>
-                   <p className="text-[10px] font-bold text-muted uppercase">Receita Inc.</p>
-                </div>
-                <div className="space-y-2">
-                   <div className={cn(
-                     "text-4xl font-bold mono",
-                     incrementalRoi > 0 ? "text-accent" : "text-danger"
-                   )}>
-                     {incrementalRoi.toFixed(0)}%
-                   </div>
-                   <p className="text-[10px] font-bold text-muted uppercase">ROI Projeta</p>
-                </div>
-             </div>
-
-             {/* Incremental Graphic mockup logic */}
-             <div className="pt-20">
-                <div className="p-8 rounded-2xl bg-gradient-to-br from-accent/10 to-transparent border border-accent/20 shadow-2xl relative">
-                   <div className="absolute top-4 right-6">
-                      <TrendingUp className="w-8 h-8 text-accent/20" />
-                   </div>
-                   <p className="text-sm font-bold text-muted mb-4 flex items-center justify-center gap-2">
-                     O seu potencial de escala é 
-                     <span className="text-success font-black uppercase text-base">Altíssimo</span>
-                   </p>
-                   <div className="flex items-center justify-center gap-4 text-2xl font-bold tracking-tight">
-                     <span className="text-muted">Aumentar verba em</span>
-                     <span className="px-4 py-1.5 bg-white text-black rounded-lg shadow-lg">{formatCurrency(budget)}</span>
-                     <ArrowRight className="w-5 h-5 text-muted" />
-                     <span className="text-success">{formatCurrency(incrementalRevenue)} de Faturamento</span>
-                   </div>
-                </div>
-             </div>
-          </div>
+        {/* Desktop table */}
+        <div className="hidden sm:block overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-white/5">
+                {["Produto", "Investimento", "Leads", "CPL", "Vendas", "Faturamento", "ROAS"].map(h => (
+                  <th key={h} className="px-4 sm:px-6 py-3 text-[9px] font-bold text-muted uppercase tracking-widest text-left">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p, i) => (
+                <tr key={p.product} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
+                  <td className="px-4 sm:px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-2 h-8 rounded-full",
+                        p.roas >= 2 ? "bg-success" : p.roas >= 1 ? "bg-warning" : "bg-danger"
+                      )} />
+                      <span className="text-xs font-bold text-white">{p.product}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 sm:px-6 py-4 text-xs font-bold mono text-white/80">{formatCurrency(p.spend)}</td>
+                  <td className="px-4 sm:px-6 py-4 text-xs font-bold mono text-accent">{formatNumber(p.leads)}</td>
+                  <td className="px-4 sm:px-6 py-4 text-xs font-bold mono">{formatCurrency(p.cpl)}</td>
+                  <td className="px-4 sm:px-6 py-4 text-xs font-bold mono text-white">{p.sales}</td>
+                  <td className="px-4 sm:px-6 py-4 text-xs font-bold mono text-success">{formatCurrency(p.revenue)}</td>
+                  <td className="px-4 sm:px-6 py-4">
+                    <div className={cn(
+                      "flex items-center gap-1 text-xs font-bold mono",
+                      p.roas >= 2 ? "text-success" : p.roas >= 1 ? "text-warning" : "text-danger"
+                    )}>
+                      {p.roas >= 1 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                      {p.roas.toFixed(2)}x
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+
+        {/* Mobile cards */}
+        <div className="sm:hidden divide-y divide-white/5">
+          {products.map(p => (
+            <div key={p.product} className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-bold text-white">{p.product}</span>
+                <span className={cn(
+                  "text-xs font-black mono px-2 py-0.5 rounded",
+                  p.roas >= 2 ? "bg-success/20 text-success" : p.roas >= 1 ? "bg-warning/20 text-warning" : "bg-danger/20 text-danger"
+                )}>
+                  {p.roas.toFixed(2)}x ROAS
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <span className="text-[9px] font-bold text-muted uppercase block">Investido</span>
+                  <span className="text-xs font-bold mono">{formatCurrency(p.spend)}</span>
+                </div>
+                <div>
+                  <span className="text-[9px] font-bold text-muted uppercase block">Leads</span>
+                  <span className="text-xs font-bold mono text-accent">{p.leads}</span>
+                </div>
+                <div>
+                  <span className="text-[9px] font-bold text-muted uppercase block">Vendas</span>
+                  <span className="text-xs font-bold mono text-success">{formatCurrency(p.revenue)}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {products.length === 0 && (
+          <div className="p-12 text-center">
+            <BarChart3 className="w-10 h-10 text-muted/20 mx-auto mb-3" />
+            <p className="text-xs text-muted font-bold uppercase tracking-widest">Nenhum dado de produto encontrado</p>
+            <p className="text-[10px] text-muted mt-1">Sincronize suas campanhas ou importe dados do BI/Supabase.</p>
+          </div>
+        )}
       </div>
     </div>
   );

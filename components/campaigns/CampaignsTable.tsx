@@ -21,13 +21,13 @@ import { useEffect, useState } from "react";
 import { fetchAdThumbnails } from "@/services/metaApi";
 
 export function CampaignsTable() {
-  const { dataA, token, searchQuery, statusFilter, isDirectorMode, targetCPA } = useAppStore();
+  const { dataA, token, searchQuery, statusFilter, isDirectorMode, setDrawerCampaignId } = useAppStore();
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
 
   // ... (filterItem and campaignMap calculation remains same as above but with latest variables)
   const filterItem = (item: any) => {
-    const matchesSearch = item.campaign_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          item.ad_name?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = (item.campaign_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (item.ad_name || "").toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesStatus = statusFilter === "all" || 
                           statusFilter === "active"; // Since we removed campaign_status, assume active if they have delivery in insights
@@ -65,6 +65,10 @@ export function CampaignsTable() {
 
   const campaigns = Object.values(campaignMap).sort((a, b) => b.spend - a.spend);
 
+  const totalLeads = campaigns.reduce((sum, c) => sum + c.leads, 0);
+  const totalSpend = campaigns.reduce((sum, c) => sum + c.spend, 0);
+  const avgCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
+
   useEffect(() => {
     campaigns.forEach(async (c) => {
       const cached = localStorage.getItem(`th_${c.id}`);
@@ -96,29 +100,41 @@ export function CampaignsTable() {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
+        <table className="w-full text-left border-collapse whitespace-nowrap">
+          {/* Header */}
           <thead>
-            <tr className="bg-white/[0.02]">
-              <th className="px-6 py-4 text-left text-[10px] font-bold text-muted uppercase tracking-wider border-b border-white/5">Campanha</th>
-              {!isDirectorMode && <th className="px-6 py-4 text-left text-[10px] font-bold text-muted uppercase tracking-wider border-b border-white/5">Saúde</th>}
-              <th className="px-6 py-4 text-left text-[10px] font-bold text-muted uppercase tracking-wider border-b border-white/5">Gasto</th>
-              {!isDirectorMode && <th className="px-6 py-4 text-left text-[10px] font-bold text-muted uppercase tracking-wider border-b border-white/5">CTR</th>}
-              <th className="px-6 py-4 text-left text-[10px] font-bold text-muted uppercase tracking-wider border-b border-white/5 text-accent">Leads</th>
-              <th className="px-6 py-4 text-left text-[10px] font-bold text-muted uppercase tracking-wider border-b border-white/5">CPL</th>
-              <th className="px-6 py-4 text-right text-[10px] font-bold text-muted uppercase tracking-wider border-b border-white/5">Sugestão</th>
+            <tr className="border-b border-border bg-white/[0.02]">
+              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted">Campanha & Status</th>
+              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted">Ações Rápidas</th>
+              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted text-right">Investido</th>
+              {!isDirectorMode && (
+                <>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted text-right">Imps / Freq</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted text-right">Cliques / CTR</th>
+                </>
+              )}
+              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted text-right">Leads / CPL</th>
+              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted text-right">Conversas</th>
+              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted text-center">Score (AI)</th>
             </tr>
           </thead>
+
+          {/* Body */}
           <tbody className="divide-y divide-white/[0.03]">
             {campaigns.map((c) => {
-              const score = calculateHealthScore(c, targetCPA);
+              const score = calculateHealthScore(c, avgCpl);
               const cpl = c.leads > 0 ? c.spend / c.leads : 0;
               const ctr = c.imps > 0 ? (c.clicks / c.imps) * 100 : 0;
 
-              const isScaling = cpl > 0 && cpl < targetCPA * 0.7 && c.leads > 5;
-              const isStopLoss = c.spend > targetCPA * 2 && c.leads === 0;
+              const isScaling = avgCpl > 0 && cpl > 0 && cpl < avgCpl * 0.7 && c.leads > 5;
+              const isStopLoss = avgCpl > 0 && c.spend > avgCpl * 2 && c.leads === 0;
 
               return (
-                <tr key={c.id} className="group hover:bg-white/[0.02] transition-all cursor-pointer">
+                <tr 
+                  key={c.id} 
+                  className="group hover:bg-white/[0.02] transition-all cursor-pointer"
+                  onClick={() => setDrawerCampaignId(c.id)}
+                >
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-lg bg-background border border-border flex items-center justify-center overflow-hidden shrink-0 shadow-inner relative">
@@ -178,7 +194,7 @@ export function CampaignsTable() {
                     </div>
                   </td>
                   <td className="px-6 py-5 text-sm font-bold mono tabular-nums">
-                    <span className={cpl > targetCPA ? "text-danger" : "text-success"}>{formatCurrency(cpl)}</span>
+                    <span className={avgCpl > 0 && cpl > avgCpl ? "text-danger" : "text-success"}>{formatCurrency(cpl)}</span>
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex items-center justify-end gap-2">

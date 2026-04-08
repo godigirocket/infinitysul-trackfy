@@ -7,7 +7,7 @@ import { useState, useMemo } from "react";
 import { CRMLead } from "@/types";
 
 export function LeadManagement() {
-  const { dataA, crmLeads, updateCRMLead, productPrice } = useAppStore();
+  const { dataA, crmLeads, updateCRMLead } = useAppStore();
   
   // Extract recent leads from Meta Insights actions
   const recentLeads = useMemo(() => {
@@ -42,7 +42,7 @@ export function LeadManagement() {
     updateCRMLead({
       ...lead,
       status,
-      sale_value: status === 'converted' ? productPrice : 0
+      sale_value: status === 'converted' ? (lead.sale_value || 0) : 0
     });
   };
 

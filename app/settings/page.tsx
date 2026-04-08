@@ -20,8 +20,7 @@ export default function SettingsPage() {
   const { 
     token, setToken, 
     accountId, setAccountId, 
-    geminiKey, setGeminiKey, 
-    targetLeads, setTargetLeads 
+    geminiKey, setGeminiKey
   } = useAppStore();
 
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
@@ -111,24 +110,6 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="space-y-6 pt-10 border-t border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-success/10 border border-success/20 flex items-center justify-center">
-              <Database className="w-4 h-4 text-success" />
-            </div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-muted">Metas do Dashboard</h3>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-muted uppercase tracking-wider ml-1">Meta de Leads Ideal (Diária)</label>
-            <Input 
-              type="number" 
-              value={targetLeads} 
-              onChange={(e) => setTargetLeads(parseInt(e.target.value) || 0)}
-              className="h-11 bg-white/[0.02] tabular-nums"
-            />
-          </div>
-        </div>
 
         <div className="flex items-center gap-4 pt-4">
           <Button 

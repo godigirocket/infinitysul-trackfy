@@ -44,8 +44,14 @@ export function PeakAnalysis() {
       const stats = Array(24).fill(0);
       data.forEach(item => {
         if (!filterItem(item)) return;
-        const hour = parseInt(item.hourly_stats_aggregated_by_audience_time_zone?.split(":")[0] || "0");
-        stats[hour] += extractMetric(item.actions, ['lead']);
+        const hourStr = item.hourly_stats_aggregated_by_audience_time_zone;
+        if (!hourStr) return;
+        
+        // Format: "00:00-00:59" or "0"
+        const hour = parseInt(hourStr.split(":")[0]);
+        if (isNaN(hour)) return;
+        
+        stats[hour] += extractMetric(item.actions, ['lead', 'leadgen.other', 'offsite_conversion.fb_pixel_lead']);
       });
       return stats;
     };

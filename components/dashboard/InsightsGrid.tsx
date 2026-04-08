@@ -7,7 +7,7 @@ import { getOpportunityCost } from "@/services/rulesEngine";
 import { useMemo } from "react";
 
 export function InsightsGrid() {
-  const { dataA, targetCPA, crmLeads } = useAppStore();
+  const { dataA, crmLeads } = useAppStore();
 
   const insights = useMemo(() => {
     if (dataA.length === 0) return [];
@@ -17,25 +17,8 @@ export function InsightsGrid() {
     const avgCpa = totalLeads > 0 ? totalSpend / totalLeads : 0;
     
     // Opportunity Cost
-    const oppCost = getOpportunityCost(dataA, targetCPA);
+    const oppCost = getOpportunityCost(dataA, avgCpa);
     
-    // Day of week analysis
-    const dayPerformances: Record<number, { leads: number; spend: number }> = {};
-    dataA.forEach(item => {
-      const day = new Date(item.date_start).getUTCDay();
-      if (!dayPerformances[day]) dayPerformances[day] = { leads: 0, spend: 0 };
-      dayPerformances[day].leads += extractMetric(item.actions, ['lead']);
-      dayPerformances[day].spend += parseFloat(item.spend || "0");
-    });
-
-    const bestDayIndex = Object.keys(dayPerformances).reduce((a, b) => {
-      const cpaA = dayPerformances[parseInt(a)].leads > 0 ? dayPerformances[parseInt(a)].spend / dayPerformances[parseInt(a)].leads : Infinity;
-      const cpaB = dayPerformances[parseInt(b)].leads > 0 ? dayPerformances[parseInt(b)].spend / dayPerformances[parseInt(b)].leads : Infinity;
-      return cpaA < cpaB ? a : b;
-    }, "0");
-
-    const days = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-
     // ROI Real from CRM
     const convertedLeads = crmLeads.filter(l => l.status === 'converted');
     const totalRevenue = convertedLeads.reduce((acc, curr) => acc + (curr.sale_value || 0), 0);
@@ -47,7 +30,7 @@ export function InsightsGrid() {
         value: `R$ ${avgCpa.toFixed(2)}`,
         description: "Custo médio por lead no período.",
         icon: TrendingUp,
-        trend: avgCpa < targetCPA ? "positive" : "negative",
+        trend: "positive", // always show neutral/positive unless comparing against past period
       },
       {
         title: "ROI Real (CRM)",
@@ -71,7 +54,7 @@ export function InsightsGrid() {
         trend: oppCost > 0 ? "negative" : "positive",
       },
     ];
-  }, [dataA, targetCPA, crmLeads]);
+  }, [dataA, crmLeads]);
 
   if (insights.length === 0) return null;
 

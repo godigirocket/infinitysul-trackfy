@@ -8,7 +8,7 @@ import { cn } from "@/components/ui/Button";
 import { extractMetric } from "@/lib/formatters";
 
 export function AlertsFeed() {
-  const { dataA, targetCPA } = useAppStore();
+  const { dataA } = useAppStore();
 
   const getCampaigns = () => {
     const campaigns: Record<string, any> = {};
@@ -34,7 +34,13 @@ export function AlertsFeed() {
     return campaigns;
   };
 
-  const alerts = analyzeCampaigns(getCampaigns(), targetCPA);
+  const campaigns = getCampaigns();
+  const campaignList = Object.values(campaigns);
+  const totalLeads = campaignList.reduce((acc, c) => acc + c.leads, 0);
+  const totalSpend = campaignList.reduce((acc, c) => acc + c.spend, 0);
+  const avgCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
+
+  const alerts = analyzeCampaigns(campaigns, avgCpl);
 
   return (
     <div className="flex flex-col h-full">

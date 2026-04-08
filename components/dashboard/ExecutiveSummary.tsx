@@ -4,16 +4,16 @@ import { useAppStore } from "@/store/useAppStore";
 import { useGemini } from "@/hooks/useGemini";
 import { Sparkles, Loader2, Send, Quote } from "lucide-react";
 import { useState } from "react";
-import { formatCurrency, formatNumber } from "@/lib/formatters";
+import { formatCurrency, formatNumber, extractMetric } from "@/lib/formatters";
 
 export function ExecutiveSummary() {
-  const { dataA, targetCPA, productPrice } = useAppStore();
+  const { dataA } = useAppStore();
   const { getInsight, loading } = useGemini();
   const [report, setReport] = useState<string | null>(null);
 
   const generateReport = async () => {
     const totalSpend = dataA.reduce((acc, curr) => acc + parseFloat(curr.spend || "0"), 0);
-    const totalLeads = dataA.reduce((acc, curr) => acc + (curr.actions?.find(a => a.action_type === 'lead')?.value ? parseInt(curr.actions.find(a => a.action_type === 'lead')!.value) : 0), 0);
+    const totalLeads = dataA.reduce((acc, curr) => acc + extractMetric(curr.actions, ['lead']), 0);
     const avgCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
     
     const prompt = `
@@ -21,8 +21,7 @@ export function ExecutiveSummary() {
       Resuma a performance atual destas campanhas de Meta Ads:
       - Investimento Total: ${formatCurrency(totalSpend)}
       - Total de Leads: ${formatNumber(totalLeads)}
-      - CPL Médio: ${formatCurrency(avgCpl)} (Meta: ${formatCurrency(targetCPA)})
-      - Valor do Produto: ${formatCurrency(productPrice)}
+      - CPL Médio: ${formatCurrency(avgCpl)}
       
       Escreva um parágrafo curto (máximo 4 linhas) em tom profissional e executivo. 
       Foque no que importa para o bolso do dono (ROI e Eficiência).

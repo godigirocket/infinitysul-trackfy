@@ -19,6 +19,8 @@ export const metadata: Metadata = {
   description: "Tráfego Pago sob medida para a Infinity Sul.",
 };
 
+import { CampaignDrawer } from "@/components/campaigns/CampaignDrawer";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,10 +28,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body className="antialiased">
+      <body className="antialiased font-sans">
+        <div className="bg-mesh" />
         <Sidebar />
-        <main className="ml-64 pt-20 min-h-screen">
-          <div className="p-8">
+        <Topbar />
+        <CampaignDrawer />
+        <main className="ml-64 pt-16 min-h-screen">
+          <div className="p-4 sm:p-6 lg:p-8">
             {children}
           </div>
         </main>

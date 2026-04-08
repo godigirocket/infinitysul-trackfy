@@ -8,32 +8,29 @@ import { useEffect, useState, useMemo } from "react";
 import { Image, Search, Filter, Loader2, Sparkles } from "lucide-react";
 
 export default function CreativeHubPage() {
-  const { dataA, token, searchQuery } = useAppStore();
+  const { dataAds, token, searchQuery } = useAppStore();
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   // Group by Ad ID to avoid duplicate creatives
   const creativeList = useMemo(() => {
     const map: Record<string, any> = {};
-    dataA.forEach(item => {
+    dataAds.forEach(item => {
       const id = item.ad_id || item.campaign_id;
       if (!map[id]) {
-        map[id] = item;
+        map[id] = { ...item };
       } else {
         // Aggregate spend for duplicate creatives in different timeframes
-        map[id] = {
-           ...map[id],
-           spend: (parseFloat(map[id].spend) + parseFloat(item.spend)).toString(),
-           impressions: (parseInt(map[id].impressions) + parseInt(item.impressions)).toString(),
-        };
+        map[id].spend = (parseFloat(map[id].spend || "0") + parseFloat(item.spend || "0")).toString();
+        map[id].impressions = (parseInt(map[id].impressions || "0") + parseInt(item.impressions || "0")).toString();
       }
     });
 
-    return Object.values(map).filter(c => 
-      c.ad_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      c.campaign_name?.toLowerCase().includes(searchQuery.toLowerCase())
-    ).sort((a, b) => parseFloat(b.spend) - parseFloat(a.spend));
-  }, [dataA, searchQuery]);
+    return Object.values(map).filter((c: any) => 
+      (c.ad_name || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (c.campaign_name || "").toLowerCase().includes(searchQuery.toLowerCase())
+    ).sort((a: any, b: any) => parseFloat(b.spend) - parseFloat(a.spend));
+  }, [dataAds, searchQuery]);
 
   useEffect(() => {
     const loadThumbnails = async () => {
@@ -44,15 +41,10 @@ export default function CreativeHubPage() {
       for (const creative of creativeList) {
         const id = creative.ad_id || creative.campaign_id;
         if (!newThumbs[id]) {
-          const cached = localStorage.getItem(`th_${id}`);
-          if (cached) {
-            newThumbs[id] = cached;
-          } else {
-            const url = await fetchAdThumbnails(id, token);
-            if (url) {
-              localStorage.setItem(`th_${id}`, url);
-              newThumbs[id] = url;
-            }
+          // Skip localStorage cache — always fetch fresh HD image
+          const url = await fetchAdThumbnails(id, token);
+          if (url) {
+            newThumbs[id] = url;
           }
         }
       }
