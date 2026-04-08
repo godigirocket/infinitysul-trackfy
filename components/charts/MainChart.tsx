@@ -16,6 +16,7 @@ import { Line } from "react-chartjs-2";
 import { extractMetric } from "@/lib/formatters";
 import { ComparisonChart } from "./ComparisonChart";
 import { Sparkles } from "lucide-react";
+import { useState, useEffect } from "react";
 
 ChartJS.register(
   CategoryScale,
@@ -30,6 +31,10 @@ ChartJS.register(
 
 export function MainChart() {
   const { dataA, dataB, isCompare, searchQuery } = useAppStore();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) return <div className="h-full" />;
 
   if (isCompare && dataB.length > 0) {
     return <ComparisonChart />;

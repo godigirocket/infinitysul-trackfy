@@ -2,6 +2,14 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { AppState, MetaInsight, CRMLead, BreakdownInsight, AccountHierarchy } from "@/types";
 
+// Lazy storage — only accesses localStorage on the client, never during SSR
+const lazyLocalStorage = createJSONStorage(() => {
+  if (typeof window === "undefined") {
+    return { getItem: () => null, setItem: () => {}, removeItem: () => {}, length: 0, clear: () => {}, key: () => null } as unknown as Storage;
+  }
+  return localStorage;
+});
+
 interface AppStore extends AppState {
   creativesHD: Record<string, string>;
   setCreativesHD: (map: Record<string, string>) => void;
@@ -138,18 +146,7 @@ export const useAppStore = create<AppStore>()(
     }),
     {
       name: "tf-store",
-      storage: createJSONStorage(() => {
-        // Safe localStorage access — returns no-op storage during SSR
-        if (typeof window === "undefined") {
-          return {
-            getItem: () => null,
-            setItem: () => {},
-            removeItem: () => {},
-          };
-        }
-        return localStorage;
-      }),
-      partialize: (state) => ({
+      storage: lazyLocalStorage,      partialize: (state) => ({
         token: state.token,
         accountId: state.accountId,
         geminiKey: state.geminiKey,

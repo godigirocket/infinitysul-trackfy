@@ -1,175 +1,250 @@
 "use client";
 
 import { useAppStore } from "@/store/useAppStore";
-import { X, TrendingUp, Users, Map, Clock, Zap, Target } from "lucide-react";
+import { X, Users, Map, Zap, Layers, ImageIcon, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { extractMetric, formatCurrency } from "@/lib/formatters";
-import { useMemo } from "react";
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell 
-} from "recharts";
+import { extractMetric, formatCurrency, formatNumber, LEAD_ACTION_TYPES, CONVERSATION_ACTION_TYPES } from "@/lib/formatters";
+import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
+
+type Tab = "overview" | "adsets" | "ads";
 
 export function CampaignDrawer() {
-  const { drawerCampaignId, setDrawerCampaignId, dataA, dataAds, ageBreakdownA, genderBreakdownA, regionBreakdownA } = useAppStore();
+  const {
+    drawerCampaignId, setDrawerCampaignId,
+    dataA, dataAds, hierarchy,
+    ageBreakdownA, regionBreakdownA,
+    creativesHD,
+  } = useAppStore();
 
-  const campaignData = useMemo(() => {
+  const [tab, setTab] = useState<Tab>("overview");
+
+  const data = useMemo(() => {
     if (!drawerCampaignId) return null;
-    const filtered = dataA.filter(d => d.campaign_id === drawerCampaignId);
+
+    const rows = dataA.filter(d => d.campaign_id === drawerCampaignId);
     const ads = dataAds.filter(d => d.campaign_id === drawerCampaignId);
-    
-    const totals = filtered.reduce((acc, curr) => {
-      acc.spend += parseFloat(curr.spend || "0");
-      acc.leads += extractMetric(curr.actions, ['lead']);
-      acc.imps += parseInt(curr.impressions || "0");
+    const name = rows[0]?.campaign_name || ads[0]?.campaign_name || "Campanha";
+
+    // Aggregate totals
+    const totals = rows.reduce((acc, r) => {
+      acc.spend += parseFloat(r.spend || "0");
+      acc.impressions += parseInt(r.impressions || "0");
+      acc.clicks += parseInt(r.clicks || "0");
+      acc.leads += extractMetric(r.actions, LEAD_ACTION_TYPES);
+      acc.conversations += extractMetric(r.actions, CONVERSATION_ACTION_TYPES);
       return acc;
-    }, { spend: 0, leads: 0, imps: 0 });
+    }, { spend: 0, impressions: 0, clicks: 0, leads: 0, conversations: 0 });
 
-    const name = filtered[0]?.campaign_name || "Campanha";
-    
-    // Breakdowns filtered for this campaign
-    const age = ageBreakdownA.filter(d => d.campaign_id === drawerCampaignId);
-    const gender = genderBreakdownA.filter(d => d.campaign_id === drawerCampaignId);
-    const regions = regionBreakdownA.filter(d => d.campaign_id === drawerCampaignId);
+    // Adsets from hierarchy
+    const adsets = (hierarchy?.adsets || []).filter(as => as.campaign_id === drawerCampaignId);
 
-    return { name, totals, ads, age, gender, regions };
-  }, [drawerCampaignId, dataA, dataAds, ageBreakdownA, genderBreakdownA, regionBreakdownA]);
+    // Adset-level metrics from dataAds
+    const adsetMetrics: Record<string, { spend: number; leads: number; conversations: number; impressions: number }> = {};
+    ads.forEach(ad => {
+      const asId = ad.adset_id || "";
+      if (!adsetMetrics[asId]) adsetMetrics[asId] = { spend: 0, leads: 0, conversations: 0, impressions: 0 };
+      adsetMetrics[asId].spend += parseFloat(ad.spend || "0");
+      adsetMetrics[asId].leads += extractMetric(ad.actions, LEAD_ACTION_TYPES);
+      adsetMetrics[asId].conversations += extractMetric(ad.actions, CONVERSATION_ACTION_TYPES);
+      adsetMetrics[asId].impressions += parseInt(ad.impressions || "0");
+    });
 
-  if (!drawerCampaignId || !campaignData) return null;
+    // Aggregate ads by ad_id
+    const adMap: Record<string, any> = {};
+    ads.forEach(ad => {
+      const id = ad.ad_id || "";
+      if (!adMap[id]) adMap[id] = { ...ad, _leads: 0, _convs: 0, _spend: 0 };
+      adMap[id]._spend += parseFloat(ad.spend || "0");
+      adMap[id]._leads += extractMetric(ad.actions, LEAD_ACTION_TYPES);
+      adMap[id]._convs += extractMetric(ad.actions, CONVERSATION_ACTION_TYPES);
+    });
+    const adList = Object.values(adMap).sort((a: any, b: any) => b._spend - a._spend);
+
+    const regions = regionBreakdownA
+      .filter(d => d.campaign_id === drawerCampaignId)
+      .reduce((acc: any[], r) => {
+        const existing = acc.find(x => x.region === r.region);
+        if (existing) {
+          existing.spend += parseFloat(r.spend || "0");
+          existing.leads += extractMetric(r.actions, LEAD_ACTION_TYPES);
+        } else {
+          acc.push({ region: r.region, spend: parseFloat(r.spend || "0"), leads: extractMetric(r.actions, LEAD_ACTION_TYPES) });
+        }
+        return acc;
+      }, [])
+      .sort((a, b) => b.spend - a.spend)
+      .slice(0, 6);
+
+    return { name, totals, adsets, adsetMetrics, adList, regions };
+  }, [drawerCampaignId, dataA, dataAds, hierarchy, regionBreakdownA]);
+
+  if (!drawerCampaignId || !data) return null;
+
+  const cpl = data.totals.leads > 0 ? data.totals.spend / data.totals.leads : 0;
+  const ctr = data.totals.impressions > 0 ? (data.totals.clicks / data.totals.impressions) * 100 : 0;
 
   return (
     <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] animate-in fade-in duration-300" 
-        onClick={() => setDrawerCampaignId(null)}
-      />
-      
-      {/* Panel */}
-      <aside className="fixed inset-y-0 right-0 w-full max-w-xl bg-surface border-l border-white/5 shadow-2xl z-[101] flex flex-col animate-in slide-in-from-right duration-500">
-        <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-accent uppercase tracking-[0.2em] mb-1">Métricas Isoladas</span>
-            <h2 className="text-lg font-bold text-white truncate max-w-[400px]">{campaignData.name}</h2>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]" onClick={() => setDrawerCampaignId(null)} />
+
+      <aside className="fixed inset-y-0 right-0 w-full max-w-2xl bg-surface border-l border-white/5 shadow-2xl z-[101] flex flex-col animate-in slide-in-from-right duration-300">
+        {/* Header */}
+        <div className="p-5 border-b border-white/5 flex items-start justify-between">
+          <div>
+            <span className="text-[9px] font-bold text-accent uppercase tracking-[0.2em]">Relatório Isolado</span>
+            <h2 className="text-base font-bold text-white mt-0.5 max-w-md leading-tight">{data.name}</h2>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setDrawerCampaignId(null)}
-            className="rounded-full hover:bg-white/5"
-          >
-            <X className="w-5 h-5 text-muted" />
-          </Button>
+          <button onClick={() => setDrawerCampaignId(null)} className="p-2 rounded-lg hover:bg-white/5 text-muted hover:text-white transition-all">
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-8">
-          {/* Main KPI Grid */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="glass p-4">
-              <span className="text-[10px] font-bold text-muted uppercase tracking-widest block mb-2">Gasto</span>
-              <p className="text-xl font-bold mono">{formatCurrency(campaignData.totals.spend)}</p>
+        {/* KPI strip */}
+        <div className="grid grid-cols-5 divide-x divide-white/5 border-b border-white/5">
+          {[
+            { label: "Gasto", value: formatCurrency(data.totals.spend), color: "text-white" },
+            { label: "Impressões", value: formatNumber(data.totals.impressions), color: "text-white" },
+            { label: "CTR", value: ctr.toFixed(2) + "%", color: "text-white" },
+            { label: "Leads", value: formatNumber(data.totals.leads), color: "text-accent" },
+            { label: "CPL", value: formatCurrency(cpl), color: cpl > 0 ? "text-emerald-400" : "text-white" },
+          ].map(k => (
+            <div key={k.label} className="p-4 text-center">
+              <span className="text-[9px] font-bold text-muted uppercase tracking-widest block mb-1">{k.label}</span>
+              <span className={cn("text-sm font-black mono", k.color)}>{k.value}</span>
             </div>
-            <div className="glass p-4 border-accent/20">
-              <span className="text-[10px] font-bold text-accent uppercase tracking-widest block mb-2">Leads</span>
-              <p className="text-xl font-bold mono">{campaignData.totals.leads}</p>
-            </div>
-            <div className="glass p-4">
-              <span className="text-[10px] font-bold text-muted uppercase tracking-widest block mb-2">CPL</span>
-              <p className="text-xl font-bold mono">
-                {campaignData.totals.leads > 0 ? formatCurrency(campaignData.totals.spend / campaignData.totals.leads) : "R$ 0,00"}
-              </p>
-            </div>
-          </div>
+          ))}
+        </div>
 
-          {/* Demographic Section */}
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                <Users className="w-4 h-4 text-accent" />
-                Idade & Gênero
-              </h3>
-              <div className="h-48 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={campaignData.age}>
-                    <XAxis dataKey="age" axisLine={false} tick={{fill: '#71717a', fontSize: 10}} />
-                    <Tooltip 
-                      contentStyle={{backgroundColor: '#111113', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px'}}
-                      itemStyle={{fontSize: '10px', fontWeight: 'bold'}}
-                    />
-                    <Bar dataKey="spend" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+        {/* Tabs */}
+        <div className="flex border-b border-white/5">
+          {(["overview", "adsets", "ads"] as Tab[]).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={cn(
+                "flex-1 py-3 text-[10px] font-bold uppercase tracking-widest transition-all",
+                tab === t ? "text-accent border-b-2 border-accent" : "text-muted hover:text-white"
+              )}
+            >
+              {t === "overview" ? "Visão Geral" : t === "adsets" ? `Conjuntos (${data.adsets.length})` : `Anúncios (${data.adList.length})`}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+
+          {tab === "overview" && (
+            <>
+              {/* Conversations */}
+              <div className="glass p-4">
+                <span className="text-[10px] font-bold text-muted uppercase tracking-widest block mb-1">Conversas Iniciadas</span>
+                <span className="text-2xl font-black mono text-warning">{formatNumber(data.totals.conversations)}</span>
               </div>
-            </div>
 
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                <Map className="w-4 h-4 text-accent" />
-                Performance por Região (Top Estados)
-              </h3>
-              <div className="grid grid-cols-1 gap-2">
-                {campaignData.regions.slice(0, 5).map((r, i) => (
-                   <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5">
-                      <span className="text-xs font-bold">{r.region}</span>
+              {/* Regions */}
+              {data.regions.length > 0 && (
+                <div className="glass p-4 space-y-3">
+                  <h3 className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                    <Map className="w-3.5 h-3.5 text-accent" /> Top Regiões
+                  </h3>
+                  {data.regions.map((r, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+                      <span className="text-xs font-bold text-white">{r.region || "Desconhecido"}</span>
                       <div className="flex items-center gap-4">
-                        <span className="text-[10px] text-muted font-bold uppercase">{extractMetric(r.actions, ['lead'])} Leads</span>
-                        <span className="text-xs font-bold mono">{formatCurrency(parseFloat(r.spend))}</span>
-                      </div>
-                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Ads List */}
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
-              <Zap className="w-4 h-4 text-accent" />
-              Anúncios Detalhados
-            </h3>
-            <div className="space-y-4">
-              {campaignData.ads.map((ad, i) => {
-                const hierarchyAd = (useAppStore.getState().hierarchy?.ads || []).find(h => h.id === ad.ad_id);
-                const creative = (hierarchyAd as any)?.adcreatives?.data?.[0];
-                const thumb = creative?.thumbnail_url || creative?.image_url;
-
-                return (
-                  <div key={i} className="glass overflow-hidden flex flex-col hover:bg-white/[0.04] transition-all group">
-                    <div className="aspect-video w-full bg-white/5 relative overflow-hidden bg-muted/20">
-                      {thumb ? (
-                        <img 
-                          src={thumb} 
-                          alt={ad.ad_name}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-[10px] text-muted font-bold uppercase tracking-widest">Sem Prévia</div>
-                      )}
-                      <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md rounded text-[8px] font-bold text-white uppercase tracking-widest border border-white/10">
-                        ID: {ad.ad_id?.slice(-6)}
+                        <span className="text-[10px] text-accent font-bold">{r.leads} leads</span>
+                        <span className="text-xs mono text-muted">{formatCurrency(r.spend)}</span>
                       </div>
                     </div>
-                    <div className="p-4 flex items-center justify-between">
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-bold truncate max-w-[200px]">{ad.ad_name}</span>
-                        <span className="text-[10px] text-muted font-bold uppercase">{extractMetric(ad.actions, ['lead'])} Leads</span>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {tab === "adsets" && (
+            <div className="space-y-3">
+              {data.adsets.length === 0 ? (
+                <div className="py-12 text-center text-muted text-xs">Nenhum conjunto encontrado para esta campanha.</div>
+              ) : data.adsets.map(as => {
+                const m = data.adsetMetrics[as.id] || { spend: 0, leads: 0, conversations: 0, impressions: 0 };
+                const isActive = as.effective_status === "ACTIVE";
+                return (
+                  <div key={as.id} className="glass p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={cn("w-2 h-2 rounded-full flex-shrink-0", isActive ? "bg-success animate-pulse" : "bg-muted")} />
+                        <span className="text-xs font-bold text-white truncate">{as.name}</span>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold mono">{formatCurrency(parseFloat(ad.spend))}</p>
+                      <span className={cn("text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0",
+                        isActive ? "bg-success/10 text-success" : "bg-white/5 text-muted"
+                      )}>
+                        {as.effective_status}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { label: "Gasto", value: formatCurrency(m.spend) },
+                        { label: "Imps", value: formatNumber(m.impressions) },
+                        { label: "Leads", value: String(m.leads) },
+                        { label: "Conversas", value: String(m.conversations) },
+                      ].map(k => (
+                        <div key={k.label} className="text-center p-2 rounded-lg bg-white/[0.03]">
+                          <span className="text-[9px] text-muted font-bold uppercase block">{k.label}</span>
+                          <span className="text-xs font-black mono text-white">{k.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {tab === "ads" && (
+            <div className="space-y-3">
+              {data.adList.length === 0 ? (
+                <div className="py-12 text-center text-muted text-xs">Nenhum anúncio encontrado para esta campanha.</div>
+              ) : data.adList.map((ad: any) => {
+                const thumb = creativesHD?.[ad.ad_id];
+                const adCpl = ad._leads > 0 ? ad._spend / ad._leads : 0;
+                return (
+                  <div key={ad.ad_id} className="glass overflow-hidden">
+                    {thumb && (
+                      <div className="aspect-video w-full overflow-hidden bg-white/5">
+                        <img src={thumb} alt={ad.ad_name} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <span className="text-xs font-bold text-white leading-tight">{ad.ad_name}</span>
+                        {!thumb && <ImageIcon className="w-4 h-4 text-muted/30 flex-shrink-0" />}
+                      </div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {[
+                          { label: "Gasto", value: formatCurrency(ad._spend) },
+                          { label: "Leads", value: String(ad._leads) },
+                          { label: "Conversas", value: String(ad._convs) },
+                          { label: "CPL", value: formatCurrency(adCpl) },
+                        ].map(k => (
+                          <div key={k.label} className="text-center p-2 rounded-lg bg-white/[0.03]">
+                            <span className="text-[9px] text-muted font-bold uppercase block">{k.label}</span>
+                            <span className="text-xs font-black mono text-white">{k.value}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
                 );
               })}
             </div>
-          </div>
+          )}
         </div>
-        
-        <div className="p-6 border-t border-white/5 bg-white/[0.01]">
-          <Button 
-            className="w-full h-12 font-bold uppercase tracking-widest text-[11px]"
-            onClick={() => setDrawerCampaignId(null)}
-          >
-            Fechar Detalhamento
+
+        <div className="p-4 border-t border-white/5">
+          <Button className="w-full h-10 font-bold text-[11px] uppercase tracking-widest" onClick={() => setDrawerCampaignId(null)}>
+            Fechar
           </Button>
         </div>
       </aside>

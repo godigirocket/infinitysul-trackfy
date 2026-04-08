@@ -4,7 +4,9 @@ import { useAppStore } from "@/store/useAppStore";
 import { 
   formatCurrency, 
   formatNumber, 
-  extractMetric 
+  extractMetric,
+  LEAD_ACTION_TYPES,
+  CONVERSATION_ACTION_TYPES
 } from "@/lib/formatters";
 import { calculateHealthScore } from "@/services/rulesEngine";
 import { Badge } from "@/components/ui/Badge";
@@ -12,17 +14,12 @@ import { Button } from "@/components/ui/Button";
 import { 
   BarChart3, 
   Download, 
-  Lightbulb, 
   ImageIcon,
-  ChevronRight
 } from "lucide-react";
 import { cn } from "@/components/ui/Button";
-import { useEffect, useState } from "react";
-import { fetchAdThumbnails } from "@/services/metaApi";
 
 export function CampaignsTable() {
-  const { dataA, token, searchQuery, statusFilter, isDirectorMode, setDrawerCampaignId } = useAppStore();
-  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
+  const { dataA, searchQuery, statusFilter, isDirectorMode, setDrawerCampaignId, creativesHD } = useAppStore();
 
   // ... (filterItem and campaignMap calculation remains same as above but with latest variables)
   const filterItem = (item: any) => {
@@ -57,8 +54,8 @@ export function CampaignsTable() {
     c.spend += parseFloat(r.spend || "0");
     c.imps += parseInt(r.impressions || "0");
     c.clicks += parseInt(r.clicks || "0");
-    c.leads += extractMetric(r.actions, ["lead"]);
-    c.convs += extractMetric(r.actions, ["onsite_conversion.messaging_conversation_started_7d"]);
+    c.leads += extractMetric(r.actions, LEAD_ACTION_TYPES);
+    c.convs += extractMetric(r.actions, CONVERSATION_ACTION_TYPES);
     c.regs += extractMetric(r.actions, ["complete_registration"]);
     c.frequency = Math.max(c.frequency, parseFloat(r.frequency || "0"));
   });
@@ -68,21 +65,6 @@ export function CampaignsTable() {
   const totalLeads = campaigns.reduce((sum, c) => sum + c.leads, 0);
   const totalSpend = campaigns.reduce((sum, c) => sum + c.spend, 0);
   const avgCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
-
-  useEffect(() => {
-    campaigns.forEach(async (c) => {
-      const cached = localStorage.getItem(`th_${c.id}`);
-      if (cached) {
-        setThumbnails((prev) => ({ ...prev, [c.id]: cached }));
-      } else if (token) {
-        const url = await fetchAdThumbnails(c.id, token);
-        if (url) {
-          localStorage.setItem(`th_${c.id}`, url);
-          setThumbnails((prev) => ({ ...prev, [c.id]: url }));
-        }
-      }
-    });
-  }, [dataA, token]);
 
   return (
     <div className="glass overflow-hidden border-white/5 shadow-2xl">
@@ -138,8 +120,8 @@ export function CampaignsTable() {
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-lg bg-background border border-border flex items-center justify-center overflow-hidden shrink-0 shadow-inner relative">
-                        {thumbnails[c.id] ? (
-                          <img src={thumbnails[c.id]} alt="" className="w-full h-full object-cover" />
+                        {creativesHD && creativesHD[c.id] ? (
+                          <img src={creativesHD[c.id]} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <ImageIcon className="w-4 h-4 text-muted/30" />
                         )}
