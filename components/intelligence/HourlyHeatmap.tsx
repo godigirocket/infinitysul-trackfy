@@ -22,19 +22,19 @@ export function HourlyHeatmap() {
     })));
 
     hourlyDataA.forEach((row) => {
-      const hourStr = row.hourly_stats_aggregated_by_audience_time_zone;
+      const hourStr = (row as any)._hourly_field
+        || row.hourly_stats_aggregated_by_advertiser_time_zone
+        || row.hourly_stats_aggregated_by_audience_time_zone;
       if (!hourStr) return;
 
-      // Meta returns this as "H_M" (e.g. "0_0", "13_0") or "HH:MM:SS" or "HH:MM-HH:MM"
+      // Meta returns hour as "H_M" (e.g. "0_0", "13_0"), "HH:MM:SS", or plain number
       let hourIdx: number;
-      if (hourStr.includes("_")) {
-        // Format: "0_0", "13_0" → hour is before underscore
-        hourIdx = parseInt(hourStr.split("_")[0]);
-      } else if (hourStr.includes(":")) {
-        // Format: "00:00:00" or "00:00-00:59"
-        hourIdx = parseInt(hourStr.split(":")[0]);
+      if (typeof hourStr === "number") {
+        hourIdx = hourStr;
+      } else if (String(hourStr).includes("_")) {
+        hourIdx = parseInt(String(hourStr).split("_")[0]);
       } else {
-        hourIdx = parseInt(hourStr);
+        hourIdx = parseInt(String(hourStr).split(":")[0]);
       }
       if (isNaN(hourIdx) || hourIdx < 0 || hourIdx > 23) return;
 

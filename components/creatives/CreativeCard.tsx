@@ -13,17 +13,17 @@ interface CreativeCardProps {
 }
 
 export function CreativeCard({ insight, thumbnail }: CreativeCardProps) {
-  const hierarchy = useAppStore(s => s.hierarchy);
+  const { hierarchy, creativesHD } = useAppStore(s => ({ hierarchy: s.hierarchy, creativesHD: s.creativesHD }));
   
-  // Try to get high-quality image from hierarchy ads
-  let imageUrl = thumbnail;
-  if (hierarchy?.ads) {
+  // Priority: creativesHD map (HD from /ads→creative) > hierarchy > thumbnail prop
+  let imageUrl: string | undefined =
+    (insight.ad_id ? creativesHD[insight.ad_id] : undefined) || thumbnail;
+
+  if (!imageUrl && hierarchy?.ads) {
     const hierarchyAd = hierarchy.ads.find(a => a.id === insight.ad_id);
     if (hierarchyAd) {
-      const creative = (hierarchyAd as any).adcreatives?.data?.[0];
-      // Prefer full_picture > picture > image_url > thumbnail_url (descending quality)
-      const hdUrl = creative?.full_picture || creative?.picture || creative?.image_url || creative?.thumbnail_url;
-      if (hdUrl) imageUrl = hdUrl;
+      const creative = (hierarchyAd as any).creative || (hierarchyAd as any).adcreatives?.data?.[0];
+      imageUrl = creative?.image_url || creative?.thumbnail_url;
     }
   }
 

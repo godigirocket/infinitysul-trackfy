@@ -3,6 +3,8 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import { AppState, MetaInsight, CRMLead, BreakdownInsight, AccountHierarchy } from "@/types";
 
 interface AppStore extends AppState {
+  creativesHD: Record<string, string>;
+  setCreativesHD: (map: Record<string, string>) => void;
   setToken: (token: string) => void;
   setAccountId: (id: string) => void;
   setGeminiKey: (key: string) => void;
@@ -87,6 +89,8 @@ export const useAppStore = create<AppStore>()(
       hierarchy: null,
       apiError: null,
       drawerCampaignId: null,
+      creativesHD: {},
+      setCreativesHD: (creativesHD) => set({ creativesHD }),
       setDrawerCampaignId: (drawerCampaignId) => set({ drawerCampaignId }),
       setApiError: (apiError) => set({ apiError }),
       setToken: (token) => set({ token }),

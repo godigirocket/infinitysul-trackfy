@@ -3,14 +3,11 @@
 import { useAppStore } from "@/store/useAppStore";
 import { CreativeCard } from "@/components/creatives/CreativeCard";
 import { useMetaData } from "@/hooks/useMetaData";
-import { fetchAdThumbnails } from "@/services/metaApi";
-import { useEffect, useState, useMemo } from "react";
-import { Image, Search, Filter, Loader2, Sparkles } from "lucide-react";
+import { useMemo } from "react";
+import { Image, Sparkles } from "lucide-react";
 
 export default function CreativeHubPage() {
-  const { dataAds, token, searchQuery } = useAppStore();
-  const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
+  const { dataAds, searchQuery, creativesHD } = useAppStore();
 
   // Group by Ad ID to avoid duplicate creatives
   const creativeList = useMemo(() => {
@@ -20,7 +17,6 @@ export default function CreativeHubPage() {
       if (!map[id]) {
         map[id] = { ...item };
       } else {
-        // Aggregate spend for duplicate creatives in different timeframes
         map[id].spend = (parseFloat(map[id].spend || "0") + parseFloat(item.spend || "0")).toString();
         map[id].impressions = (parseInt(map[id].impressions || "0") + parseInt(item.impressions || "0")).toString();
       }
@@ -77,23 +73,16 @@ export default function CreativeHubPage() {
           <CreativeCard 
             key={creative.ad_id || creative.campaign_id} 
             insight={creative} 
-            thumbnail={thumbnails[creative.ad_id || creative.campaign_id]} 
+            thumbnail={creativesHD[creative.ad_id || creative.campaign_id]}
           />
         ))}
       </div>
 
-      {creativeList.length === 0 && !loading && (
+      {creativeList.length === 0 && (
         <div className="py-40 text-center glass rounded-2xl border-dashed">
           <Image className="w-12 h-12 text-muted/20 mx-auto mb-4" />
           <h3 className="text-sm font-bold text-muted uppercase tracking-widest">Nenhum criativo encontrado</h3>
           <p className="text-xs text-muted/50">Tente ajustar seus filtros ou verifique a conexão com o Meta Ads.</p>
-        </div>
-      )}
-
-      {loading && creativeList.length === 0 && (
-        <div className="py-40 text-center">
-          <Loader2 className="w-10 h-10 text-accent animate-spin mx-auto" />
-          <p className="text-[10px] font-bold text-muted uppercase tracking-widest mt-4">Carregando thumbnails da API...</p>
         </div>
       )}
     </div>
