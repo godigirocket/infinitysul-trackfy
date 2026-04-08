@@ -23,7 +23,7 @@ export function HourlyHeatmap() {
 
     hourlyDataA.forEach((row) => {
       const hourStr = (row as any)._hourly_field
-        || row.hourly_stats_aggregated_by_advertiser_time_zone
+        || (row as any).hourly_stats_aggregated_by_advertiser_time_zone
         || row.hourly_stats_aggregated_by_audience_time_zone;
       if (!hourStr) return;
 

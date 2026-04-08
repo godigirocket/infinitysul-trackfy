@@ -28,29 +28,6 @@ export default function CreativeHubPage() {
     ).sort((a: any, b: any) => parseFloat(b.spend) - parseFloat(a.spend));
   }, [dataAds, searchQuery]);
 
-  useEffect(() => {
-    const loadThumbnails = async () => {
-      if (!token) return;
-      setLoading(true);
-      const newThumbs: Record<string, string> = { ...thumbnails };
-      
-      for (const creative of creativeList) {
-        const id = creative.ad_id || creative.campaign_id;
-        if (!newThumbs[id]) {
-          // Skip localStorage cache — always fetch fresh HD image
-          const url = await fetchAdThumbnails(id, token);
-          if (url) {
-            newThumbs[id] = url;
-          }
-        }
-      }
-      setThumbnails(newThumbs);
-      setLoading(false);
-    };
-
-    loadThumbnails();
-  }, [creativeList, token]);
-
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex items-center justify-between">
