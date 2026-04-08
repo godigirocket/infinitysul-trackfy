@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import {
   fetchMetaInsights,
@@ -11,26 +11,26 @@ import {
 } from "@/services/metaApi";
 import { fetchSupabaseLeads } from "@/lib/supabase";
 
-// Read only primitives from the store to avoid recreating refresh on every render
-function getParams() {
-  const s = useAppStore.getState();
-  return {
-    token: s.token,
-    accountId: s.accountId,
-    period: s.period,
-    customStart: s.customStart,
-    customEnd: s.customEnd,
-    isCompare: s.isCompare,
-  };
-}
+// Global flag — only one fetch runs at a time across all component instances
+let isFetching = false;
+let lastFetchKey = "";
 
-async function runRefresh() {
-  const { token, accountId, period, customStart, customEnd, isCompare } = getParams();
+export async function runRefresh() {
+  const { token, accountId, period, customStart, customEnd, isCompare } =
+    useAppStore.getState();
+
   if (!token || !accountId) return;
 
-  const store = useAppStore.getState();
-  store.setLoading(true);
-  store.setApiError(null);
+  const key = `${token}|${accountId}|${period}|${customStart}|${customEnd}|${isCompare}`;
+  if (isFetching) return; // already running
+  if (key === lastFetchKey) return; // same params, skip
+
+  isFetching = true;
+  lastFetchKey = key;
+
+  const s = useAppStore.getState();
+  s.setLoading(true);
+  s.setApiError(null);
 
   try {
     const timeParams = { period, customStart, customEnd };
@@ -45,13 +45,13 @@ async function runRefresh() {
     const dataAds = adRes.status === "fulfilled" ? adRes.value : [];
     const hourlyA = hourlyRes.status === "fulfilled" ? hourlyRes.value : [];
 
-    // Surface error only if both primary calls failed
     if (dataA.length === 0 && dataAds.length === 0) {
-      const err = [campaignRes, adRes].find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
+      const err = [campaignRes, adRes].find(
+        (r) => r.status === "rejected"
+      ) as PromiseRejectedResult | undefined;
       if (err) throw err.reason;
     }
 
-    // Comparison period
     let dataB: any[] = [];
     let hourlyB: any[] = [];
     if (isCompare && dataA.length > 0) {
@@ -63,35 +63,38 @@ async function runRefresh() {
       const minDateA = [...new Set(dataA.map((d) => d.date_start))].sort()[0];
       if (minDateA) {
         if (fullDataRes.status === "fulfilled")
-          dataB = fullDataRes.value.filter((d) => new Date(d.date_start) < new Date(minDateA));
+          dataB = fullDataRes.value.filter(
+            (d) => new Date(d.date_start) < new Date(minDateA)
+          );
         if (fullHourlyRes.status === "fulfilled")
-          hourlyB = fullHourlyRes.value.filter((d) => new Date(d.date_start) < new Date(minDateA));
+          hourlyB = fullHourlyRes.value.filter(
+            (d) => new Date(d.date_start) < new Date(minDateA)
+          );
       }
     }
 
-    // Secondary calls — all non-blocking
-    const [breakdownsRes, creativesRes, hierarchyRes, supabaseRes] = await Promise.allSettled([
-      fetchBreakdowns(accountId, token, timeParams),
-      fetchCreativesHD(accountId, token),
-      fetchAccountStructure(accountId, token),
-      fetchSupabaseLeads().catch(() => []),
-    ]);
+    const [breakdownsRes, creativesRes, hierarchyRes, supabaseRes] =
+      await Promise.allSettled([
+        fetchBreakdowns(accountId, token, timeParams),
+        fetchCreativesHD(accountId, token),
+        fetchAccountStructure(accountId, token),
+        fetchSupabaseLeads().catch(() => []),
+      ]);
 
-    // Commit everything via getState() to avoid stale closures
-    const s = useAppStore.getState();
-    s.setData(dataA, dataB);
-    s.setDataAds(dataAds);
-    s.setHourlyData(hourlyA, hourlyB);
+    const store = useAppStore.getState();
+    store.setData(dataA, dataB);
+    store.setDataAds(dataAds);
+    store.setHourlyData(hourlyA, hourlyB);
 
     if (breakdownsRes.status === "fulfilled") {
       const bd = breakdownsRes.value;
-      s.setBreakdownData(bd.age, bd.gender, bd.placement, bd.region);
+      store.setBreakdownData(bd.age, bd.gender, bd.placement, bd.region);
     } else {
-      s.setBreakdownData([], [], [], []);
+      store.setBreakdownData([], [], [], []);
     }
 
-    if (creativesRes.status === "fulfilled") s.setCreativesHD(creativesRes.value);
-    if (hierarchyRes.status === "fulfilled") s.setHierarchy(hierarchyRes.value as any);
+    if (creativesRes.status === "fulfilled") store.setCreativesHD(creativesRes.value);
+    if (hierarchyRes.status === "fulfilled") store.setHierarchy(hierarchyRes.value as any);
 
     if (supabaseRes.status === "fulfilled") {
       const leads = supabaseRes.value as any[];
@@ -107,14 +110,16 @@ async function runRefresh() {
     useAppStore.getState().setLastSync(new Date().toLocaleTimeString());
   } catch (error: any) {
     console.error("[MetaAPI] Fatal error:", error);
-    useAppStore.getState().setApiError(error?.message || "Erro desconhecido na API do Facebook");
+    useAppStore
+      .getState()
+      .setApiError(error?.message || "Erro desconhecido na API do Facebook");
   } finally {
+    isFetching = false;
     useAppStore.getState().setLoading(false);
   }
 }
 
 export function useMetaData() {
-  // Only watch the values that should trigger a new fetch
   const token = useAppStore((s) => s.token);
   const accountId = useAppStore((s) => s.accountId);
   const period = useAppStore((s) => s.period);
@@ -122,16 +127,7 @@ export function useMetaData() {
   const customEnd = useAppStore((s) => s.customEnd);
   const isCompare = useAppStore((s) => s.isCompare);
 
-  const fetchedRef = useRef(false);
-  const keyRef = useRef("");
-
   useEffect(() => {
-    const key = `${token}|${accountId}|${period}|${customStart}|${customEnd}|${isCompare}`;
-    if (!token || !accountId) return;
-    if (key === keyRef.current && fetchedRef.current) return; // deduplicate
-
-    keyRef.current = key;
-    fetchedRef.current = true;
     runRefresh();
   }, [token, accountId, period, customStart, customEnd, isCompare]);
 

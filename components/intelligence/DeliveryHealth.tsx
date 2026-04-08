@@ -76,7 +76,7 @@ export function DeliveryHealth() {
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <ScoreCard 
           title="Fase de Aprendizado"
           value={`${healthData.learningCount} Conjuntos`}

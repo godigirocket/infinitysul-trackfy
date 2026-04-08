@@ -1,7 +1,7 @@
 "use client";
 
 import { useAppStore } from "@/store/useAppStore";
-import { useMetaData } from "@/hooks/useMetaData";
+import { runRefresh } from "@/hooks/useMetaData";
 import { useStoreHydrated } from "@/components/StoreHydration";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/Badge";
@@ -33,7 +33,7 @@ export function Topbar() {
     isLoading, 
     apiError
   } = useAppStore();
-  const { refresh } = useMetaData();
+  const { refresh } = { refresh: runRefresh };
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
