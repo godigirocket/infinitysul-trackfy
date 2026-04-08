@@ -17,11 +17,19 @@ async function paginateAll(firstUrl: string): Promise<any[]> {
 
   while (url) {
     const res = await fetch(url);
+
+    // Handle non-2xx without throwing — return what we have
+    if (!res.ok && res.status !== 400) {
+      const text = await res.text().catch(() => "");
+      console.error(`[MetaAPI] HTTP ${res.status}:`, text.slice(0, 300));
+      throw new Error(`Meta API HTTP ${res.status}`);
+    }
+
     const json = await res.json() as { data?: any[]; paging?: { next?: string }; error?: any };
 
     if (json.error) {
       console.error("[MetaAPI] Error:", json.error);
-      throw new Error(json.error.message);
+      throw new Error(json.error.message || "An unknown error occurred");
     }
 
     results = results.concat(json.data || []);
@@ -48,41 +56,49 @@ export const fetchMetaInsights = async (
 ): Promise<MetaInsight[]> => {
   const level = params.level || "campaign";
 
+  const isMaximum = params.period === "maximum";
+
+  // Base fields — safe for all levels and periods
   const fieldsArr = [
     "campaign_name",
     "campaign_id",
     "objective",
-    "account_currency",
     "spend",
     "impressions",
-    "frequency",
     "clicks",
-    "ctr",
     "actions",
-    "cost_per_action_type",
-    "video_p25_watched_actions",
-    "video_p50_watched_actions",
-    "video_p75_watched_actions",
-    "video_p100_watched_actions",
-    "video_avg_time_watched_actions",
     "date_start",
     "date_stop",
   ];
+
+  // frequency + ctr not available with breakdowns or maximum on ad level
+  if (!params.breakdowns && !isMaximum) {
+    fieldsArr.push("frequency", "ctr");
+  }
+
+  // video fields — safe at campaign/adset, skip at ad+maximum to avoid 500
+  if (!(level === "ad" && isMaximum)) {
+    fieldsArr.push(
+      "video_p25_watched_actions",
+      "video_p50_watched_actions",
+      "video_p75_watched_actions",
+      "video_p100_watched_actions",
+      "video_avg_time_watched_actions"
+    );
+  }
 
   if (level === "adset" || level === "ad") {
     fieldsArr.push("adset_name", "adset_id");
   }
   if (level === "ad") {
-    fieldsArr.push("ad_name", "ad_id", "quality_ranking", "video_30_sec_watched_actions");
+    fieldsArr.push("ad_name", "ad_id");
+    // quality_ranking and video_30_sec cause 500 with maximum — skip
+    if (!isMaximum) {
+      fieldsArr.push("quality_ranking", "video_30_sec_watched_actions");
+    }
   }
 
-  // When using breakdowns, strip fields incompatible with breakdown queries
-  const breakdownIncompatible = ["frequency", "ctr"];
-  const finalFields = params.breakdowns
-    ? fieldsArr.filter(f => !breakdownIncompatible.includes(f))
-    : fieldsArr;
-
-  const fields = finalFields.join(",");
+  const fields = fieldsArr.join(",");
   const id = params.campaignId || normalizeAccountId(accountId);
 
   let urlParams = `fields=${fields}&access_token=${token}&limit=500&level=${level}`;
@@ -93,8 +109,8 @@ export const fetchMetaInsights = async (
     urlParams += `&date_preset=${params.period}`;
   }
 
-  // time_increment=1 gives daily rows — skip when using breakdowns (they aggregate differently)
-  if (!params.breakdowns) {
+  // time_increment=1 = daily rows. NOT compatible with: breakdowns, maximum period
+  if (!params.breakdowns && !isMaximum) {
     urlParams += "&time_increment=1";
   }
 

@@ -39,46 +39,44 @@ export function useMetaData() {
     try {
       const timeParams = { period, customStart, customEnd };
 
-      // ── CALL 1a: Campaign-level insights (daily rows) ──
-      const dataA = await fetchMetaInsights(accountId, token, {
-        ...timeParams,
-        level: "campaign",
-      });
+      // Run all primary calls in parallel — each isolated so one failure doesn't kill others
+      const [campaignRes, adRes, hourlyRes] = await Promise.allSettled([
+        fetchMetaInsights(accountId, token, { ...timeParams, level: "campaign" }),
+        fetchMetaInsights(accountId, token, { ...timeParams, level: "ad" }),
+        fetchHourlyInsights(accountId, token, timeParams),
+      ]);
 
-      // ── CALL 1b: Comparison period ──
+      const dataA = campaignRes.status === "fulfilled" ? campaignRes.value : [];
+      const dataAds = adRes.status === "fulfilled" ? adRes.value : [];
+      const hourlyA = hourlyRes.status === "fulfilled" ? hourlyRes.value : [];
+
+      // Surface the first real error to the user
+      const firstError = [campaignRes, adRes].find(r => r.status === "rejected") as PromiseRejectedResult | undefined;
+      if (firstError && dataA.length === 0 && dataAds.length === 0) {
+        throw firstError.reason;
+      }
+
+      // ── Comparison period ──
       let dataB: any[] = [];
-      if (isCompare) {
-        const largerPeriod = period === "last_7d" ? "last_14d" : "last_90d";
-        const fullData = await fetchMetaInsights(accountId, token, {
-          period: largerPeriod,
-          level: "campaign",
-        });
-        const minDateA = [...new Set(dataA.map((d) => d.date_start))].sort()[0];
-        if (minDateA) {
-          dataB = fullData.filter((d) => new Date(d.date_start) < new Date(minDateA));
-        }
-      }
-
-      // ── CALL 1c: Ad-level insights ──
-      const dataAds = await fetchMetaInsights(accountId, token, {
-        ...timeParams,
-        level: "ad",
-      });
-
-      // ── CALL 2: Hourly heatmap (advertiser + audience timezone, merged) ──
-      const hourlyA = await fetchHourlyInsights(accountId, token, timeParams);
-
       let hourlyB: any[] = [];
-      if (isCompare) {
+      if (isCompare && dataA.length > 0) {
         const largerPeriod = period === "last_7d" ? "last_14d" : "last_90d";
-        const fullHourly = await fetchHourlyInsights(accountId, token, { period: largerPeriod });
+        const [fullDataRes, fullHourlyRes] = await Promise.allSettled([
+          fetchMetaInsights(accountId, token, { period: largerPeriod, level: "campaign" }),
+          fetchHourlyInsights(accountId, token, { period: largerPeriod }),
+        ]);
         const minDateA = [...new Set(dataA.map((d) => d.date_start))].sort()[0];
         if (minDateA) {
-          hourlyB = fullHourly.filter((d) => new Date(d.date_start) < new Date(minDateA));
+          if (fullDataRes.status === "fulfilled") {
+            dataB = fullDataRes.value.filter((d) => new Date(d.date_start) < new Date(minDateA));
+          }
+          if (fullHourlyRes.status === "fulfilled") {
+            hourlyB = fullHourlyRes.value.filter((d) => new Date(d.date_start) < new Date(minDateA));
+          }
         }
       }
 
-      // ── CALL 3 + 4 + hierarchy in parallel (non-blocking) ──
+      // ── Secondary calls: breakdowns, creatives, hierarchy (all non-blocking) ──
       const [breakdownsRes, creativesRes, hierarchyRes, supabaseRes] = await Promise.allSettled([
         fetchBreakdowns(accountId, token, timeParams),
         fetchCreativesHD(accountId, token),
@@ -95,7 +93,7 @@ export function useMetaData() {
         const bd = breakdownsRes.value;
         setBreakdownData(bd.age, bd.gender, bd.placement, bd.region);
       } else {
-        console.warn("[MetaAPI] Breakdowns failed:", breakdownsRes.reason);
+        console.warn("[MetaAPI] Breakdowns failed:", (breakdownsRes as PromiseRejectedResult).reason);
         setBreakdownData([], [], [], []);
       }
 
