@@ -1,7 +1,8 @@
 import { MetaInsight, BreakdownInsight } from "@/types";
 
+const META_BASE = "https://graph.facebook.com";
 const API_VERSION = "v19.0";
-const BASE_URL = `https://graph.facebook.com/${API_VERSION}`;
+const BASE_URL = `${META_BASE}/${API_VERSION}`;
 
 export const normalizeAccountId = (id: string): string => {
   if (!id) return id;
@@ -9,29 +10,29 @@ export const normalizeAccountId = (id: string): string => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Paginate through all pages of a Meta API response
+// All Meta API calls go through /api/meta (server-side proxy)
+// This avoids CORS blocks and browser timeouts on large datasets
 // ─────────────────────────────────────────────────────────────────────────────
+async function metaFetch(url: string): Promise<any> {
+  const res = await fetch("/api/meta", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+  const json = await res.json();
+  if (json.error) {
+    console.error("[MetaAPI] Error:", json.error);
+    throw new Error(json.error.message || "Meta API error");
+  }
+  return json;
+}
+
 async function paginateAll(firstUrl: string): Promise<any[]> {
   let results: any[] = [];
   let url: string | null = firstUrl;
 
   while (url) {
-    const res = await fetch(url);
-
-    // Handle non-2xx without throwing — return what we have
-    if (!res.ok && res.status !== 400) {
-      const text = await res.text().catch(() => "");
-      console.error(`[MetaAPI] HTTP ${res.status}:`, text.slice(0, 300));
-      throw new Error(`Meta API HTTP ${res.status}`);
-    }
-
-    const json = await res.json() as { data?: any[]; paging?: { next?: string }; error?: any };
-
-    if (json.error) {
-      console.error("[MetaAPI] Error:", json.error);
-      throw new Error(json.error.message || "An unknown error occurred");
-    }
-
+    const json = await metaFetch(url);
     results = results.concat(json.data || []);
     url = json.paging?.next || null;
   }
@@ -260,8 +261,7 @@ export const fetchCreativesHD = async (accountId: string, token: string): Promis
 export const fetchAdThumbnails = async (id: string, token: string): Promise<string | null> => {
   // Path 1: creative object directly on the ad
   try {
-    const res = await fetch(`${BASE_URL}/${id}?fields=creative{id,image_url,thumbnail_url,object_story_spec}&access_token=${token}`);
-    const json = await res.json();
+    const json = await metaFetch(`${BASE_URL}/${id}?fields=creative{id,image_url,thumbnail_url,object_story_spec}&access_token=${token}`);
     const c = json.creative;
     if (c) {
       const url = c.image_url
@@ -274,8 +274,7 @@ export const fetchAdThumbnails = async (id: string, token: string): Promise<stri
 
   // Path 2: adcreatives edge
   try {
-    const res = await fetch(`${BASE_URL}/${id}?fields=adcreatives{image_url,thumbnail_url}&access_token=${token}`);
-    const json = await res.json();
+    const json = await metaFetch(`${BASE_URL}/${id}?fields=adcreatives{image_url,thumbnail_url}&access_token=${token}`);
     const c = json.adcreatives?.data?.[0];
     if (c) return c.image_url || c.thumbnail_url || null;
   } catch (e) {}
@@ -290,9 +289,9 @@ export const fetchAccountStructure = async (accountId: string, token: string) =>
   const account_id = normalizeAccountId(accountId);
 
   const [campaigns, adsets, ads] = await Promise.all([
-    fetch(`${BASE_URL}/${account_id}/campaigns?fields=name,id,effective_status,objective&limit=1000&access_token=${token}`).then(r => r.json()),
-    fetch(`${BASE_URL}/${account_id}/adsets?fields=name,id,effective_status,campaign_id&limit=1000&access_token=${token}`).then(r => r.json()),
-    fetch(`${BASE_URL}/${account_id}/ads?fields=name,id,effective_status,adset_id,campaign_id,creative{id,image_url,thumbnail_url}&limit=1000&access_token=${token}`).then(r => r.json()),
+    metaFetch(`${BASE_URL}/${account_id}/campaigns?fields=name,id,effective_status,objective&limit=1000&access_token=${token}`),
+    metaFetch(`${BASE_URL}/${account_id}/adsets?fields=name,id,effective_status,campaign_id&limit=1000&access_token=${token}`),
+    metaFetch(`${BASE_URL}/${account_id}/ads?fields=name,id,effective_status,adset_id,campaign_id,creative{id,image_url,thumbnail_url}&limit=1000&access_token=${token}`),
   ]);
 
   return {

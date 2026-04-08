@@ -49,8 +49,7 @@ interface AppStore extends AppState {
 
 export const useAppStore = create<AppStore>()(
   persist(
-    (set) => ({
-      token: "",
+    (set) => ({      token: "",
       accountId: "",
       geminiKey: "",
       isDirectorMode: false,
@@ -140,6 +139,7 @@ export const useAppStore = create<AppStore>()(
     {
       name: "tf-store",
       storage: createJSONStorage(() => localStorage),
+      skipHydration: true,
       partialize: (state) => ({
         token: state.token,
         accountId: state.accountId,
