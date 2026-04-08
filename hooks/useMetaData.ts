@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
+import { useStoreHydrated } from "@/components/StoreHydration";
 import {
   fetchMetaInsights,
   fetchHourlyInsights,
@@ -12,6 +13,7 @@ import {
 import { fetchSupabaseLeads } from "@/lib/supabase";
 
 export function useMetaData() {
+  const hydrated = useStoreHydrated();
   const {
     token,
     accountId,
@@ -132,8 +134,8 @@ export function useMetaData() {
   ]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (hydrated) refresh();
+  }, [hydrated, refresh]);
 
   return { refresh };
 }

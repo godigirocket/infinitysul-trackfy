@@ -2,6 +2,7 @@
 
 import { useAppStore } from "@/store/useAppStore";
 import { useMetaData } from "@/hooks/useMetaData";
+import { useStoreHydrated } from "@/components/StoreHydration";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -23,6 +24,7 @@ const periods = [
 ];
 
 export function Topbar() {
+  const hydrated = useStoreHydrated();
   const { 
     period, 
     setPeriod, 
@@ -38,7 +40,7 @@ export function Topbar() {
     setMounted(true);
   }, []);
 
-  if (!mounted) {
+  if (!mounted || !hydrated) {
     return <header className="fixed top-0 right-0 left-64 h-16 bg-surface/80 backdrop-blur-md border-b border-border px-4 sm:px-8 z-40"></header>;
   }
 

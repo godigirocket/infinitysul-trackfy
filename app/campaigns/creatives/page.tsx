@@ -1,19 +1,24 @@
 "use client";
 
 import { useAppStore } from "@/store/useAppStore";
+import { useStoreHydrated } from "@/components/StoreHydration";
 import { CreativeCard } from "@/components/creatives/CreativeCard";
 import { useMetaData } from "@/hooks/useMetaData";
 import { useMemo } from "react";
-import { Image, Sparkles } from "lucide-react";
+import { Image, Sparkles, Loader2 } from "lucide-react";
 
 export default function CreativeHubPage() {
-  const { dataAds, searchQuery, creativesHD } = useAppStore();
+  const hydrated = useStoreHydrated();
+  const { dataAds, searchQuery, creativesHD, isLoading } = useAppStore();
+  useMetaData(); // ensure data is fetched on this page too
 
-  // Group by Ad ID to avoid duplicate creatives
+  const safeCreativesHD: Record<string, string> = creativesHD || {};
+
   const creativeList = useMemo(() => {
     const map: Record<string, any> = {};
-    dataAds.forEach(item => {
+    (dataAds || []).forEach(item => {
       const id = item.ad_id || item.campaign_id;
+      if (!id) return;
       if (!map[id]) {
         map[id] = { ...item };
       } else {
@@ -22,11 +27,21 @@ export default function CreativeHubPage() {
       }
     });
 
-    return Object.values(map).filter((c: any) => 
-      (c.ad_name || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
-      (c.campaign_name || "").toLowerCase().includes(searchQuery.toLowerCase())
-    ).sort((a: any, b: any) => parseFloat(b.spend) - parseFloat(a.spend));
+    return Object.values(map)
+      .filter((c: any) =>
+        (c.ad_name || "").toLowerCase().includes((searchQuery || "").toLowerCase()) ||
+        (c.campaign_name || "").toLowerCase().includes((searchQuery || "").toLowerCase())
+      )
+      .sort((a: any, b: any) => parseFloat(b.spend || "0") - parseFloat(a.spend || "0"));
   }, [dataAds, searchQuery]);
+
+  if (!hydrated || isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 text-accent animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -46,20 +61,23 @@ export default function CreativeHubPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {creativeList.map((creative) => (
-          <CreativeCard 
-            key={creative.ad_id || creative.campaign_id} 
-            insight={creative} 
-            thumbnail={creativesHD[creative.ad_id || creative.campaign_id]}
-          />
-        ))}
+        {creativeList.map((creative) => {
+          const id = creative.ad_id || creative.campaign_id;
+          return (
+            <CreativeCard
+              key={id}
+              insight={creative}
+              thumbnail={safeCreativesHD[id]}
+            />
+          );
+        })}
       </div>
 
       {creativeList.length === 0 && (
         <div className="py-40 text-center glass rounded-2xl border-dashed">
           <Image className="w-12 h-12 text-muted/20 mx-auto mb-4" />
           <h3 className="text-sm font-bold text-muted uppercase tracking-widest">Nenhum criativo encontrado</h3>
-          <p className="text-xs text-muted/50">Tente ajustar seus filtros ou verifique a conexão com o Meta Ads.</p>
+          <p className="text-xs text-muted/50">Sincronize sua conta Meta para ver os criativos.</p>
         </div>
       )}
     </div>
