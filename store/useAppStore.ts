@@ -49,7 +49,8 @@ interface AppStore extends AppState {
 
 export const useAppStore = create<AppStore>()(
   persist(
-    (set) => ({      token: "",
+    (set) => ({
+      token: "",
       accountId: "",
       geminiKey: "",
       isDirectorMode: false,
@@ -82,9 +83,9 @@ export const useAppStore = create<AppStore>()(
       genderFilters: [],
       isLoading: false,
       lastSync: null,
-      intelProductFilter: 'all',
-      intelCampaignFilter: 'all',
-      intelSignalFilter: 'all',
+      intelProductFilter: "all",
+      intelCampaignFilter: "all",
+      intelSignalFilter: "all",
       hierarchy: null,
       apiError: null,
       drawerCampaignId: null,
@@ -96,19 +97,18 @@ export const useAppStore = create<AppStore>()(
       setAccountId: (accountId) => set({ accountId }),
       setGeminiKey: (geminiKey) => set({ geminiKey }),
       setIsDirectorMode: (isDirectorMode) => set({ isDirectorMode }),
-      setAnnotation: (date, text) => set((state) => ({ 
-        annotations: { ...state.annotations, [date]: text } 
-      })),
-      setCampaignTag: (campaignId, tags) => set((state) => ({
-        campaignTags: { ...state.campaignTags, [campaignId]: tags }
-      })),
-      updateCRMLead: (lead) => set((state) => {
-        const existing = state.crmLeads.findIndex(l => l.lead_id === lead.lead_id);
-        const newList = [...state.crmLeads];
-        if (existing > -1) newList[existing] = lead;
-        else newList.push(lead);
-        return { crmLeads: newList };
-      }),
+      setAnnotation: (date, text) =>
+        set((state) => ({ annotations: { ...state.annotations, [date]: text } })),
+      setCampaignTag: (campaignId, tags) =>
+        set((state) => ({ campaignTags: { ...state.campaignTags, [campaignId]: tags } })),
+      updateCRMLead: (lead) =>
+        set((state) => {
+          const existing = state.crmLeads.findIndex((l) => l.lead_id === lead.lead_id);
+          const newList = [...state.crmLeads];
+          if (existing > -1) newList[existing] = lead;
+          else newList.push(lead);
+          return { crmLeads: newList };
+        }),
       setPeriod: (period) => set({ period, customStart: "", customEnd: "" }),
       setCustomRange: (customStart, customEnd) =>
         set({ customStart, customEnd, period: "custom" }),
@@ -138,8 +138,17 @@ export const useAppStore = create<AppStore>()(
     }),
     {
       name: "tf-store",
-      storage: createJSONStorage(() => localStorage),
-      skipHydration: true,
+      storage: createJSONStorage(() => {
+        // Safe localStorage access — returns no-op storage during SSR
+        if (typeof window === "undefined") {
+          return {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          };
+        }
+        return localStorage;
+      }),
       partialize: (state) => ({
         token: state.token,
         accountId: state.accountId,

@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { useStoreHydrated } from "@/components/StoreHydration";
 import {
   fetchMetaInsights,
   fetchHourlyInsights,
@@ -12,130 +11,129 @@ import {
 } from "@/services/metaApi";
 import { fetchSupabaseLeads } from "@/lib/supabase";
 
-export function useMetaData() {
-  const hydrated = useStoreHydrated();
-  const {
-    token,
-    accountId,
-    period,
-    customStart,
-    customEnd,
-    isCompare,
-    setLoading,
-    setData,
-    setDataAds,
-    setHourlyData,
-    setBreakdownData,
-    setLastSync,
-    setHierarchy,
-    setApiError,
-    setCreativesHD,
-  } = useAppStore();
+// Read only primitives from the store to avoid recreating refresh on every render
+function getParams() {
+  const s = useAppStore.getState();
+  return {
+    token: s.token,
+    accountId: s.accountId,
+    period: s.period,
+    customStart: s.customStart,
+    customEnd: s.customEnd,
+    isCompare: s.isCompare,
+  };
+}
 
-  const refresh = useCallback(async () => {
-    if (!token || !accountId) return;
+async function runRefresh() {
+  const { token, accountId, period, customStart, customEnd, isCompare } = getParams();
+  if (!token || !accountId) return;
 
-    setLoading(true);
-    setApiError(null);
+  const store = useAppStore.getState();
+  store.setLoading(true);
+  store.setApiError(null);
 
-    try {
-      const timeParams = { period, customStart, customEnd };
+  try {
+    const timeParams = { period, customStart, customEnd };
 
-      // Run all primary calls in parallel — each isolated so one failure doesn't kill others
-      const [campaignRes, adRes, hourlyRes] = await Promise.allSettled([
-        fetchMetaInsights(accountId, token, { ...timeParams, level: "campaign" }),
-        fetchMetaInsights(accountId, token, { ...timeParams, level: "ad" }),
-        fetchHourlyInsights(accountId, token, timeParams),
-      ]);
+    const [campaignRes, adRes, hourlyRes] = await Promise.allSettled([
+      fetchMetaInsights(accountId, token, { ...timeParams, level: "campaign" }),
+      fetchMetaInsights(accountId, token, { ...timeParams, level: "ad" }),
+      fetchHourlyInsights(accountId, token, timeParams),
+    ]);
 
-      const dataA = campaignRes.status === "fulfilled" ? campaignRes.value : [];
-      const dataAds = adRes.status === "fulfilled" ? adRes.value : [];
-      const hourlyA = hourlyRes.status === "fulfilled" ? hourlyRes.value : [];
+    const dataA = campaignRes.status === "fulfilled" ? campaignRes.value : [];
+    const dataAds = adRes.status === "fulfilled" ? adRes.value : [];
+    const hourlyA = hourlyRes.status === "fulfilled" ? hourlyRes.value : [];
 
-      // Surface the first real error to the user
-      const firstError = [campaignRes, adRes].find(r => r.status === "rejected") as PromiseRejectedResult | undefined;
-      if (firstError && dataA.length === 0 && dataAds.length === 0) {
-        throw firstError.reason;
-      }
-
-      // ── Comparison period ──
-      let dataB: any[] = [];
-      let hourlyB: any[] = [];
-      if (isCompare && dataA.length > 0) {
-        const largerPeriod = period === "last_7d" ? "last_14d" : "last_90d";
-        const [fullDataRes, fullHourlyRes] = await Promise.allSettled([
-          fetchMetaInsights(accountId, token, { period: largerPeriod, level: "campaign" }),
-          fetchHourlyInsights(accountId, token, { period: largerPeriod }),
-        ]);
-        const minDateA = [...new Set(dataA.map((d) => d.date_start))].sort()[0];
-        if (minDateA) {
-          if (fullDataRes.status === "fulfilled") {
-            dataB = fullDataRes.value.filter((d) => new Date(d.date_start) < new Date(minDateA));
-          }
-          if (fullHourlyRes.status === "fulfilled") {
-            hourlyB = fullHourlyRes.value.filter((d) => new Date(d.date_start) < new Date(minDateA));
-          }
-        }
-      }
-
-      // ── Secondary calls: breakdowns, creatives, hierarchy (all non-blocking) ──
-      const [breakdownsRes, creativesRes, hierarchyRes, supabaseRes] = await Promise.allSettled([
-        fetchBreakdowns(accountId, token, timeParams),
-        fetchCreativesHD(accountId, token),
-        fetchAccountStructure(accountId, token),
-        fetchSupabaseLeads().catch(() => []),
-      ]);
-
-      // ── Commit to store ──
-      setData(dataA, dataB);
-      setDataAds(dataAds);
-      setHourlyData(hourlyA, hourlyB);
-
-      if (breakdownsRes.status === "fulfilled") {
-        const bd = breakdownsRes.value;
-        setBreakdownData(bd.age, bd.gender, bd.placement, bd.region);
-      } else {
-        console.warn("[MetaAPI] Breakdowns failed:", (breakdownsRes as PromiseRejectedResult).reason);
-        setBreakdownData([], [], [], []);
-      }
-
-      if (creativesRes.status === "fulfilled") {
-        setCreativesHD(creativesRes.value);
-      }
-
-      if (hierarchyRes.status === "fulfilled") {
-        setHierarchy(hierarchyRes.value as any);
-      }
-
-      // Merge Supabase leads
-      if (supabaseRes.status === "fulfilled") {
-        const supabaseLeads = supabaseRes.value as any[];
-        if (supabaseLeads.length > 0) {
-          const store = useAppStore.getState();
-          const existingIds = new Set(store.crmLeads.map((l) => l.lead_id));
-          const newLeads = supabaseLeads.filter((l: any) => !existingIds.has(l.lead_id));
-          if (newLeads.length > 0) {
-            useAppStore.setState({ crmLeads: [...store.crmLeads, ...newLeads] });
-          }
-        }
-      }
-
-      setLastSync(new Date().toLocaleTimeString());
-    } catch (error: any) {
-      console.error("[MetaAPI] Fatal error:", error);
-      setApiError(error?.message || "Erro desconhecido na API do Facebook");
-    } finally {
-      setLoading(false);
+    // Surface error only if both primary calls failed
+    if (dataA.length === 0 && dataAds.length === 0) {
+      const err = [campaignRes, adRes].find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
+      if (err) throw err.reason;
     }
-  }, [
-    token, accountId, period, customStart, customEnd, isCompare,
-    setLoading, setData, setDataAds, setHourlyData, setBreakdownData,
-    setLastSync, setHierarchy, setApiError, setCreativesHD,
-  ]);
+
+    // Comparison period
+    let dataB: any[] = [];
+    let hourlyB: any[] = [];
+    if (isCompare && dataA.length > 0) {
+      const largerPeriod = period === "last_7d" ? "last_14d" : "last_90d";
+      const [fullDataRes, fullHourlyRes] = await Promise.allSettled([
+        fetchMetaInsights(accountId, token, { period: largerPeriod, level: "campaign" }),
+        fetchHourlyInsights(accountId, token, { period: largerPeriod }),
+      ]);
+      const minDateA = [...new Set(dataA.map((d) => d.date_start))].sort()[0];
+      if (minDateA) {
+        if (fullDataRes.status === "fulfilled")
+          dataB = fullDataRes.value.filter((d) => new Date(d.date_start) < new Date(minDateA));
+        if (fullHourlyRes.status === "fulfilled")
+          hourlyB = fullHourlyRes.value.filter((d) => new Date(d.date_start) < new Date(minDateA));
+      }
+    }
+
+    // Secondary calls — all non-blocking
+    const [breakdownsRes, creativesRes, hierarchyRes, supabaseRes] = await Promise.allSettled([
+      fetchBreakdowns(accountId, token, timeParams),
+      fetchCreativesHD(accountId, token),
+      fetchAccountStructure(accountId, token),
+      fetchSupabaseLeads().catch(() => []),
+    ]);
+
+    // Commit everything via getState() to avoid stale closures
+    const s = useAppStore.getState();
+    s.setData(dataA, dataB);
+    s.setDataAds(dataAds);
+    s.setHourlyData(hourlyA, hourlyB);
+
+    if (breakdownsRes.status === "fulfilled") {
+      const bd = breakdownsRes.value;
+      s.setBreakdownData(bd.age, bd.gender, bd.placement, bd.region);
+    } else {
+      s.setBreakdownData([], [], [], []);
+    }
+
+    if (creativesRes.status === "fulfilled") s.setCreativesHD(creativesRes.value);
+    if (hierarchyRes.status === "fulfilled") s.setHierarchy(hierarchyRes.value as any);
+
+    if (supabaseRes.status === "fulfilled") {
+      const leads = supabaseRes.value as any[];
+      if (leads.length > 0) {
+        const cur = useAppStore.getState();
+        const existingIds = new Set(cur.crmLeads.map((l) => l.lead_id));
+        const newLeads = leads.filter((l: any) => !existingIds.has(l.lead_id));
+        if (newLeads.length > 0)
+          useAppStore.setState({ crmLeads: [...cur.crmLeads, ...newLeads] });
+      }
+    }
+
+    useAppStore.getState().setLastSync(new Date().toLocaleTimeString());
+  } catch (error: any) {
+    console.error("[MetaAPI] Fatal error:", error);
+    useAppStore.getState().setApiError(error?.message || "Erro desconhecido na API do Facebook");
+  } finally {
+    useAppStore.getState().setLoading(false);
+  }
+}
+
+export function useMetaData() {
+  // Only watch the values that should trigger a new fetch
+  const token = useAppStore((s) => s.token);
+  const accountId = useAppStore((s) => s.accountId);
+  const period = useAppStore((s) => s.period);
+  const customStart = useAppStore((s) => s.customStart);
+  const customEnd = useAppStore((s) => s.customEnd);
+  const isCompare = useAppStore((s) => s.isCompare);
+
+  const fetchedRef = useRef(false);
+  const keyRef = useRef("");
 
   useEffect(() => {
-    if (hydrated) refresh();
-  }, [hydrated, refresh]);
+    const key = `${token}|${accountId}|${period}|${customStart}|${customEnd}|${isCompare}`;
+    if (!token || !accountId) return;
+    if (key === keyRef.current && fetchedRef.current) return; // deduplicate
 
-  return { refresh };
+    keyRef.current = key;
+    fetchedRef.current = true;
+    runRefresh();
+  }, [token, accountId, period, customStart, customEnd, isCompare]);
+
+  return { refresh: runRefresh };
 }
