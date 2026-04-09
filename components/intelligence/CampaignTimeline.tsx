@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { 
   ResponsiveContainer, LineChart, Line, AreaChart, Area, 
@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 
 export function CampaignTimeline() {
   const { dataA, selectedCampaigns, selectedAdSets } = useAppStore();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const timelineData = useMemo(() => {
     const dailyMap: Record<string, any> = {};
@@ -62,6 +64,8 @@ export function CampaignTimeline() {
   }, [dataA, selectedCampaigns, selectedAdSets]);
 
   const accelerationMoments = timelineData.filter(d => d.isAcceleration);
+
+  if (!mounted) return <div className="glass p-6 h-64 animate-pulse" />;
 
   return (
     <div className="glass p-6 animate-in fade-in slide-in-from-bottom-4 duration-700">

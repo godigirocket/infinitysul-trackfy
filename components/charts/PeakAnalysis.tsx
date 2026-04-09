@@ -12,7 +12,7 @@ import {
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
 import { extractMetric } from "@/lib/formatters";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 ChartJS.register(
   CategoryScale,
@@ -25,6 +25,9 @@ ChartJS.register(
 
 export function PeakAnalysis() {
   const { hourlyDataA, hourlyDataB, isCompare, searchQuery, statusFilter } = useAppStore();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return <div className="h-full" />;
 
   const filterItem = (item: any) => {
     const matchesSearch = item.campaign_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||

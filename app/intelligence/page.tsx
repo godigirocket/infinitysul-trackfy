@@ -19,12 +19,14 @@ import { OptimizationPanel } from "@/components/intelligence/OptimizationPanel";
 import { CylinderFunnel } from "@/components/intelligence/CylinderFunnel";
 import { AudienceBreakdown } from "@/components/intelligence/AudienceBreakdown";
 import { BIConnector } from "@/components/intelligence/BIConnector";
+import { useMetaData } from "@/hooks/useMetaData";
 
 type TabType = "overview" | "time" | "timeline" | "audience" | "funnel" | "creatives";
 
 export default function IntelligencePage() {
   const [activeTab, setActiveTab] = useState<TabType>("overview");
   const { dataAds, isLoading } = useAppStore();
+  useMetaData();
 
   const allIntel = useMemo(() => runIntelligence(dataAds), [dataAds]);
   const summary = useMemo(() => calcIntelSummary(allIntel), [allIntel]);
@@ -54,7 +56,6 @@ export default function IntelligencePage() {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen pb-20">
       {/* Header */}

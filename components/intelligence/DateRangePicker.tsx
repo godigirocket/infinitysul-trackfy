@@ -123,7 +123,7 @@ export function DateRangePicker() {
   };
 
   const currentLabel = PRESETS.find(p => p.id === period)?.label || 
-                 (customStart && customEnd ? `${format(new Date(customStart), "dd MMM")} - ${format(new Date(customEnd), "dd MMM")}` : "Período Personalizado");
+                 (customStart && customEnd && customStart.length > 0 ? `${format(new Date(customStart), "dd MMM")} - ${format(new Date(customEnd), "dd MMM")}` : "Período Personalizado");
 
   return (
     <div className="relative" ref={containerRef}>

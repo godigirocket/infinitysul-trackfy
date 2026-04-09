@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import { Users, User, UserCheck, TrendingUp } from "lucide-react";
 import { formatCurrency, extractMetric, LEAD_ACTION_TYPES } from "@/lib/formatters";
+import { useState, useEffect } from "react";
 
 const COLORS = ['#6366f1', '#a855f7', '#ec4899', '#f43f5e', '#ef4444', '#f97316'];
 const GENDER_COLORS = {
@@ -18,6 +19,8 @@ const GENDER_COLORS = {
 
 export function AudienceBreakdown() {
   const { ageBreakdownA, genderBreakdownA } = useAppStore();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const ageData = useMemo(() => {
     const map = new Map();
@@ -46,6 +49,8 @@ export function AudienceBreakdown() {
   const topAge = useMemo(() => {
     return [...ageData].sort((a, b) => b.leads - a.leads)[0];
   }, [ageData]);
+
+  if (!mounted) return <div className="space-y-8"><div className="glass h-64 animate-pulse" /><div className="glass h-64 animate-pulse" /></div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">

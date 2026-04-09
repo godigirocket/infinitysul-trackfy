@@ -3,10 +3,13 @@
 import { useAppStore } from "@/store/useAppStore";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { formatCurrency, extractMetric } from "@/lib/formatters";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 export function ComparisonChart() {
   const { dataA, dataB, annotations } = useAppStore();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return <div className="h-full" />;
 
   const chartData = useMemo(() => {
     // Map data by day offset to overlap them
