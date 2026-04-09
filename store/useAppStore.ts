@@ -1,14 +1,16 @@
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
 import { AppState, MetaInsight, CRMLead, BreakdownInsight, AccountHierarchy } from "@/types";
 
-// Lazy storage — only accesses localStorage on the client, never during SSR
-const lazyLocalStorage = createJSONStorage(() => {
-  if (typeof window === "undefined") {
-    return { getItem: () => null, setItem: () => {}, removeItem: () => {}, length: 0, clear: () => {}, key: () => null } as unknown as Storage;
-  }
-  return localStorage;
-});
+// Keys that get saved to localStorage
+const PERSIST_KEYS = [
+  "token", "accountId", "geminiKey", "isDirectorMode",
+  "annotations", "campaignTags", "crmLeads",
+  "selectedCampaigns", "selectedAdSets", "selectedAds",
+  "statusFilters", "objectiveFilters", "placementFilters",
+  "ageFilters", "genderFilters",
+] as const;
+
+const STORAGE_KEY = "tf-store";
 
 interface AppStore extends AppState {
   creativesHD: Record<string, string>;
@@ -23,12 +25,7 @@ interface AppStore extends AppState {
   setData: (dataA: MetaInsight[], dataB?: MetaInsight[]) => void;
   setDataAds: (data: MetaInsight[]) => void;
   setHourlyData: (dataA: MetaInsight[], dataB?: MetaInsight[]) => void;
-  setBreakdownData: (
-    ageA: BreakdownInsight[],
-    genderA: BreakdownInsight[],
-    placementA: BreakdownInsight[],
-    regionA?: BreakdownInsight[]
-  ) => void;
+  setBreakdownData: (a: BreakdownInsight[], g: BreakdownInsight[], p: BreakdownInsight[], r?: BreakdownInsight[]) => void;
   setBiData: (data: any[]) => void;
   setSearchQuery: (query: string) => void;
   setStatusFilter: (status: string) => void;
@@ -53,116 +50,144 @@ interface AppStore extends AppState {
   setDrawerCampaignId: (id: string | null) => void;
   apiError: string | null;
   setApiError: (err: string | null) => void;
+  _hydrate: () => void;
 }
 
-export const useAppStore = create<AppStore>()(
-  persist(
-    (set) => ({
-      token: "",
-      accountId: "",
-      geminiKey: "",
-      isDirectorMode: false,
-      annotations: {},
-      campaignTags: {},
-      crmLeads: [],
-      period: "last_30d",
-      customStart: "",
-      customEnd: "",
-      isCompare: false,
-      dataA: [],
-      dataB: [],
-      dataAds: [],
-      hourlyDataA: [],
-      hourlyDataB: [],
-      ageBreakdownA: [],
-      genderBreakdownA: [],
-      placementBreakdownA: [],
-      regionBreakdownA: [],
-      biData: [],
-      searchQuery: "",
-      statusFilter: "all",
-      selectedCampaigns: [],
-      selectedAdSets: [],
-      selectedAds: [],
-      statusFilters: [],
-      objectiveFilters: [],
-      placementFilters: [],
-      ageFilters: [],
-      genderFilters: [],
-      isLoading: false,
-      lastSync: null,
-      intelProductFilter: "all",
-      intelCampaignFilter: "all",
-      intelSignalFilter: "all",
-      hierarchy: null,
-      apiError: null,
-      drawerCampaignId: null,
-      creativesHD: {},
-      setCreativesHD: (creativesHD) => set({ creativesHD }),
-      setDrawerCampaignId: (drawerCampaignId) => set({ drawerCampaignId }),
-      setApiError: (apiError) => set({ apiError }),
-      setToken: (token) => set({ token }),
-      setAccountId: (accountId) => set({ accountId }),
-      setGeminiKey: (geminiKey) => set({ geminiKey }),
-      setIsDirectorMode: (isDirectorMode) => set({ isDirectorMode }),
-      setAnnotation: (date, text) =>
-        set((state) => ({ annotations: { ...state.annotations, [date]: text } })),
-      setCampaignTag: (campaignId, tags) =>
-        set((state) => ({ campaignTags: { ...state.campaignTags, [campaignId]: tags } })),
-      updateCRMLead: (lead) =>
-        set((state) => {
-          const existing = state.crmLeads.findIndex((l) => l.lead_id === lead.lead_id);
-          const newList = [...state.crmLeads];
-          if (existing > -1) newList[existing] = lead;
-          else newList.push(lead);
-          return { crmLeads: newList };
-        }),
-      setPeriod: (period) => set({ period, customStart: "", customEnd: "" }),
-      setCustomRange: (customStart, customEnd) =>
-        set({ customStart, customEnd, period: "custom" }),
-      setIsCompare: (isCompare) => set({ isCompare }),
-      setLoading: (isLoading) => set({ isLoading }),
-      setData: (dataA, dataB = []) => set({ dataA, dataB }),
-      setDataAds: (dataAds) => set({ dataAds }),
-      setHourlyData: (hourlyDataA, hourlyDataB = []) => set({ hourlyDataA, hourlyDataB }),
-      setBreakdownData: (ageBreakdownA, genderBreakdownA, placementBreakdownA, regionBreakdownA = []) =>
-        set({ ageBreakdownA, genderBreakdownA, placementBreakdownA, regionBreakdownA }),
-      setBiData: (biData) => set({ biData }),
-      setSearchQuery: (searchQuery) => set({ searchQuery }),
-      setStatusFilter: (statusFilter) => set({ statusFilter }),
-      setSelectedCampaigns: (selectedCampaigns) => set({ selectedCampaigns }),
-      setSelectedAdSets: (selectedAdSets) => set({ selectedAdSets }),
-      setSelectedAds: (selectedAds) => set({ selectedAds }),
-      setStatusFilters: (statusFilters) => set({ statusFilters }),
-      setObjectiveFilters: (objectiveFilters) => set({ objectiveFilters }),
-      setPlacementFilters: (placementFilters) => set({ placementFilters }),
-      setAgeFilters: (ageFilters) => set({ ageFilters }),
-      setGenderFilters: (genderFilters) => set({ genderFilters }),
-      setLastSync: (lastSync) => set({ lastSync }),
-      setIntelProductFilter: (intelProductFilter) => set({ intelProductFilter }),
-      setIntelCampaignFilter: (intelCampaignFilter) => set({ intelCampaignFilter }),
-      setIntelSignalFilter: (intelSignalFilter) => set({ intelSignalFilter }),
-      setHierarchy: (hierarchy) => set({ hierarchy }),
+export const useAppStore = create<AppStore>()((set, get) => ({
+  // ── persisted defaults ──
+  token: "",
+  accountId: "",
+  geminiKey: "",
+  isDirectorMode: false,
+  annotations: {},
+  campaignTags: {},
+  crmLeads: [],
+  selectedCampaigns: [],
+  selectedAdSets: [],
+  selectedAds: [],
+  statusFilters: [],
+  objectiveFilters: [],
+  placementFilters: [],
+  ageFilters: [],
+  genderFilters: [],
+
+  // ── session-only defaults ──
+  period: "last_30d",
+  customStart: "",
+  customEnd: "",
+  isCompare: false,
+  dataA: [],
+  dataB: [],
+  dataAds: [],
+  hourlyDataA: [],
+  hourlyDataB: [],
+  ageBreakdownA: [],
+  genderBreakdownA: [],
+  placementBreakdownA: [],
+  regionBreakdownA: [],
+  biData: [],
+  searchQuery: "",
+  statusFilter: "all",
+  isLoading: false,
+  lastSync: null,
+  intelProductFilter: "all",
+  intelCampaignFilter: "all",
+  intelSignalFilter: "all",
+  hierarchy: null,
+  apiError: null,
+  drawerCampaignId: null,
+  creativesHD: {},
+
+  // ── actions ──
+  setCreativesHD: (creativesHD) => set({ creativesHD }),
+  setDrawerCampaignId: (drawerCampaignId) => set({ drawerCampaignId }),
+  setApiError: (apiError) => set({ apiError }),
+  setToken: (token) => {
+    set({ token });
+    _save({ token });
+  },
+  setAccountId: (accountId) => {
+    set({ accountId });
+    _save({ accountId });
+  },
+  setGeminiKey: (geminiKey) => {
+    set({ geminiKey });
+    _save({ geminiKey });
+  },
+  setIsDirectorMode: (isDirectorMode) => {
+    set({ isDirectorMode });
+    _save({ isDirectorMode });
+  },
+  setAnnotation: (date, text) =>
+    set((s) => {
+      const annotations = { ...s.annotations, [date]: text };
+      _save({ annotations });
+      return { annotations };
     }),
-    {
-      name: "tf-store",
-      storage: lazyLocalStorage,      partialize: (state) => ({
-        token: state.token,
-        accountId: state.accountId,
-        geminiKey: state.geminiKey,
-        isDirectorMode: state.isDirectorMode,
-        annotations: state.annotations,
-        campaignTags: state.campaignTags,
-        crmLeads: state.crmLeads,
-        selectedCampaigns: state.selectedCampaigns,
-        selectedAdSets: state.selectedAdSets,
-        selectedAds: state.selectedAds,
-        statusFilters: state.statusFilters,
-        objectiveFilters: state.objectiveFilters,
-        placementFilters: state.placementFilters,
-        ageFilters: state.ageFilters,
-        genderFilters: state.genderFilters,
-      }),
-    }
-  )
-);
+  setCampaignTag: (campaignId, tags) =>
+    set((s) => {
+      const campaignTags = { ...s.campaignTags, [campaignId]: tags };
+      _save({ campaignTags });
+      return { campaignTags };
+    }),
+  updateCRMLead: (lead) =>
+    set((s) => {
+      const idx = s.crmLeads.findIndex((l) => l.lead_id === lead.lead_id);
+      const crmLeads = [...s.crmLeads];
+      if (idx > -1) crmLeads[idx] = lead; else crmLeads.push(lead);
+      _save({ crmLeads });
+      return { crmLeads };
+    }),
+  setPeriod: (period) => set({ period, customStart: "", customEnd: "" }),
+  setCustomRange: (customStart, customEnd) => set({ customStart, customEnd, period: "custom" }),
+  setIsCompare: (isCompare) => set({ isCompare }),
+  setLoading: (isLoading) => set({ isLoading }),
+  setData: (dataA, dataB = []) => set({ dataA, dataB }),
+  setDataAds: (dataAds) => set({ dataAds }),
+  setHourlyData: (hourlyDataA, hourlyDataB = []) => set({ hourlyDataA, hourlyDataB }),
+  setBreakdownData: (ageBreakdownA, genderBreakdownA, placementBreakdownA, regionBreakdownA = []) =>
+    set({ ageBreakdownA, genderBreakdownA, placementBreakdownA, regionBreakdownA }),
+  setBiData: (biData) => set({ biData }),
+  setSearchQuery: (searchQuery) => set({ searchQuery }),
+  setStatusFilter: (statusFilter) => set({ statusFilter }),
+  setSelectedCampaigns: (selectedCampaigns) => { set({ selectedCampaigns }); _save({ selectedCampaigns }); },
+  setSelectedAdSets: (selectedAdSets) => { set({ selectedAdSets }); _save({ selectedAdSets }); },
+  setSelectedAds: (selectedAds) => { set({ selectedAds }); _save({ selectedAds }); },
+  setStatusFilters: (statusFilters) => { set({ statusFilters }); _save({ statusFilters }); },
+  setObjectiveFilters: (objectiveFilters) => { set({ objectiveFilters }); _save({ objectiveFilters }); },
+  setPlacementFilters: (placementFilters) => { set({ placementFilters }); _save({ placementFilters }); },
+  setAgeFilters: (ageFilters) => { set({ ageFilters }); _save({ ageFilters }); },
+  setGenderFilters: (genderFilters) => { set({ genderFilters }); _save({ genderFilters }); },
+  setLastSync: (lastSync) => set({ lastSync }),
+  setIntelProductFilter: (intelProductFilter) => set({ intelProductFilter }),
+  setIntelCampaignFilter: (intelCampaignFilter) => set({ intelCampaignFilter }),
+  setIntelSignalFilter: (intelSignalFilter) => set({ intelSignalFilter }),
+  setHierarchy: (hierarchy) => set({ hierarchy }),
+
+  // ── client-side hydration from localStorage ──
+  _hydrate: () => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as Partial<AppStore>;
+      const patch: Partial<AppStore> = {};
+      for (const key of PERSIST_KEYS) {
+        if (saved[key] !== undefined) (patch as any)[key] = saved[key];
+      }
+      if (Object.keys(patch).length > 0) set(patch as any);
+    } catch {}
+  },
+}));
+
+// Save only persisted keys to localStorage
+function _save(patch: Partial<AppStore>) {
+  if (typeof window === "undefined") return;
+  try {
+    const current = useAppStore.getState();
+    const toSave: any = {};
+    for (const key of PERSIST_KEYS) toSave[key] = (current as any)[key];
+    Object.assign(toSave, patch);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  } catch {}
+}

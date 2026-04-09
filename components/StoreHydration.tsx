@@ -1,8 +1,12 @@
 "use client";
 
-// No-op: hydration is now handled by the store itself via SSR-safe localStorage.
-// This file is kept to avoid breaking imports.
+import { useEffect } from "react";
+import { useAppStore } from "@/store/useAppStore";
+
 export function StoreHydration() {
+  useEffect(() => {
+    useAppStore.getState()._hydrate();
+  }, []);
   return null;
 }
 
