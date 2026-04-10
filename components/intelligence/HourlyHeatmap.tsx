@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
+import { safeArray } from "@/lib/safeArray";
 import { extractMetric, formatCurrency, LEAD_ACTION_TYPES, CONVERSATION_ACTION_TYPES } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import { Brain, Info, Clock, MousePointer2 } from "lucide-react";
@@ -21,7 +22,7 @@ export function HourlyHeatmap() {
       count: 0
     })));
 
-    hourlyDataA.forEach((row) => {
+    safeArray(hourlyDataA).forEach((row) => {
       const hourStr = (row as any)._hourly_field
         || (row as any).hourly_stats_aggregated_by_advertiser_time_zone
         || row.hourly_stats_aggregated_by_audience_time_zone;

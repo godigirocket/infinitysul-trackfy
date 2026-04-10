@@ -34,7 +34,7 @@ export function ExecutiveSummary() {
 
   const shareToWhatsApp = () => {
     if (!report) return;
-    const text = encodeURIComponent(`*Relatório Estratégico Trackfy (${new Date().toLocaleDateString()})*\n\n${report}\n\n_Gerado automaticamente pelo Super Dash_`);
+    const text = encodeURIComponent(`*Relatório Estratégico Trackfy*\n\n${report}\n\n_Gerado automaticamente pelo Super Dash_`);
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
@@ -79,7 +79,7 @@ export function ExecutiveSummary() {
             </div>
             <div className="h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             <p className="text-[10px] text-muted uppercase tracking-widest font-bold">
-              Relatório gerado via Gemini Pro • {new Date().toLocaleDateString()}
+              Relatório gerado via Gemini Pro
             </p>
           </div>
         ) : (

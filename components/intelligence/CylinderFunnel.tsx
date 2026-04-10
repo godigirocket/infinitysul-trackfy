@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { extractMetric, formatNumber, LEAD_ACTION_TYPES, CONVERSATION_ACTION_TYPES } from "@/lib/formatters";
+import { safeArray } from "@/lib/safeArray";
 import { Eye, MousePointer2, UserCheck, MessageSquare, ShoppingCart, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +12,7 @@ export function CylinderFunnel() {
 
   const stages = useMemo(() => {
     let impressions = 0, clicks = 0, leads = 0, conversations = 0;
-    dataA.forEach(row => {
+    safeArray(dataA).forEach(row => {
       impressions += parseInt(row.impressions || "0");
       clicks += parseInt(row.clicks || "0");
       leads += extractMetric(row.actions, LEAD_ACTION_TYPES);

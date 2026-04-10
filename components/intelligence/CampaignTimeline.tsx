@@ -7,6 +7,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, Label 
 } from "recharts";
 import { formatCurrency, extractMetric } from "@/lib/formatters";
+import { safeArray } from "@/lib/safeArray";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { TrendingUp, Activity, Zap, AlertCircle } from "lucide-react";
@@ -20,7 +21,7 @@ export function CampaignTimeline() {
   const timelineData = useMemo(() => {
     const dailyMap: Record<string, any> = {};
 
-    dataA.forEach((item) => {
+    safeArray(dataA).forEach((item) => {
       // Apply hierarchy filters
       if (selectedCampaigns.length > 0 && !selectedCampaigns.includes(item.campaign_id)) return;
       if (selectedAdSets.length > 0 && !selectedAdSets.includes(item.adset_id || "")) return;

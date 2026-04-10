@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import { Users, User, UserCheck, TrendingUp } from "lucide-react";
 import { formatCurrency, extractMetric, LEAD_ACTION_TYPES } from "@/lib/formatters";
+import { safeArray } from "@/lib/safeArray";
 import { useState, useEffect } from "react";
 
 const COLORS = ['#6366f1', '#a855f7', '#ec4899', '#f43f5e', '#ef4444', '#f97316'];
@@ -24,7 +25,7 @@ export function AudienceBreakdown() {
 
   const ageData = useMemo(() => {
     const map = new Map();
-    ageBreakdownA.forEach(item => {
+    safeArray(ageBreakdownA).forEach(item => {
       const age = item.age || "Desconhecido";
       if (!map.has(age)) map.set(age, { name: age, spend: 0, leads: 0 });
       const entry = map.get(age);
@@ -36,7 +37,7 @@ export function AudienceBreakdown() {
 
   const genderData = useMemo(() => {
     const map = new Map();
-    genderBreakdownA.forEach(item => {
+    safeArray(genderBreakdownA).forEach(item => {
       const gender = item.gender || "unknown";
       if (!map.has(gender)) map.set(gender, { name: gender === 'male' ? 'Masculino' : gender === 'female' ? 'Feminino' : 'Outros', value: 0, spend: 0 });
       const entry = map.get(gender);
