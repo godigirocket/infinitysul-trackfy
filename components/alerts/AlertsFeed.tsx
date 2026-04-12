@@ -5,36 +5,26 @@ import { analyzeCampaigns } from "@/services/rulesEngine";
 import { Bell, ShieldAlert, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/components/ui/Button";
-import { extractMetric } from "@/lib/formatters";
+import { extractMetric, LEAD_ACTION_TYPES, CONVERSATION_ACTION_TYPES } from "@/lib/formatters";
+import { safeArray } from "@/lib/safeArray";
 
 export function AlertsFeed() {
   const { dataA } = useAppStore();
 
-  const getCampaigns = () => {
-    const campaigns: Record<string, any> = {};
-    dataA.forEach(r => {
-      const id = r.campaign_id;
-      if (!campaigns[id]) {
-        campaigns[id] = { 
-          id, 
-          name: r.campaign_name, 
-          spend: 0, 
-          imps: 0, 
-          clicks: 0, 
-          leads: 0, 
-          frequency: 0 
-        };
-      }
-      campaigns[id].spend += parseFloat(r.spend || "0");
-      campaigns[id].imps += parseInt(r.impressions || "0");
-      campaigns[id].clicks += parseInt(r.clicks || "0");
-      campaigns[id].frequency = Math.max(campaigns[id].frequency, parseFloat(r.frequency || "0"));
-      campaigns[id].leads += extractMetric(r.actions, ['lead']);
-    });
-    return campaigns;
-  };
+  const campaigns: Record<string, any> = {};
+  safeArray(dataA).forEach(r => {
+    const id = r.campaign_id;
+    if (!campaigns[id]) {
+      campaigns[id] = { id, name: r.campaign_name, spend: 0, imps: 0, clicks: 0, leads: 0, convs: 0, frequency: 0 };
+    }
+    campaigns[id].spend += parseFloat(r.spend || "0");
+    campaigns[id].imps += parseInt(r.impressions || "0");
+    campaigns[id].clicks += parseInt(r.clicks || "0");
+    campaigns[id].frequency = Math.max(campaigns[id].frequency, parseFloat(r.frequency || "0"));
+    campaigns[id].leads += extractMetric(r.actions, LEAD_ACTION_TYPES);
+    campaigns[id].convs += extractMetric(r.actions, CONVERSATION_ACTION_TYPES);
+  });
 
-  const campaigns = getCampaigns();
   const campaignList = Object.values(campaigns);
   const totalLeads = campaignList.reduce((acc, c) => acc + c.leads, 0);
   const totalSpend = campaignList.reduce((acc, c) => acc + c.spend, 0);

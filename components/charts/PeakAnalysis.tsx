@@ -11,7 +11,8 @@ import {
   Legend,
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
-import { extractMetric } from "@/lib/formatters";
+import { extractMetric, LEAD_ACTION_TYPES } from "@/lib/formatters";
+import { safeArray } from "@/lib/safeArray";
 import { useMemo, useState, useEffect } from "react";
 
 ChartJS.register(
@@ -45,16 +46,20 @@ export function PeakAnalysis() {
     
     const getHourlyStats = (data: any[]) => {
       const stats = Array(24).fill(0);
-      data.forEach(item => {
-        if (!filterItem(item)) return;
-        const hourStr = item.hourly_stats_aggregated_by_audience_time_zone;
+      safeArray(data).forEach(item => {
+        const hourStr = (item as any)._hourly_field
+          || item.hourly_stats_aggregated_by_audience_time_zone;
         if (!hourStr) return;
-        
-        // Format: "00:00-00:59" or "0"
-        const hour = parseInt(hourStr.split(":")[0]);
-        if (isNaN(hour)) return;
-        
-        stats[hour] += extractMetric(item.actions, ['lead', 'leadgen.other', 'offsite_conversion.fb_pixel_lead']);
+
+        let hour: number;
+        if (String(hourStr).includes("_")) {
+          hour = parseInt(String(hourStr).split("_")[0]);
+        } else {
+          hour = parseInt(String(hourStr).split(":")[0]);
+        }
+        if (isNaN(hour) || hour < 0 || hour > 23) return;
+
+        stats[hour] += extractMetric(item.actions, LEAD_ACTION_TYPES);
       });
       return stats;
     };

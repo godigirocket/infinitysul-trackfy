@@ -2,7 +2,8 @@
 
 import { useAppStore } from "@/store/useAppStore";
 import { useMemo } from "react";
-import { formatCurrency, formatNumber, extractMetric } from "@/lib/formatters";
+import { formatCurrency, formatNumber, extractMetric, LEAD_ACTION_TYPES } from "@/lib/formatters";
+import { safeArray } from "@/lib/safeArray";
 import { 
   DollarSign, TrendingUp, Users, Target, 
   ArrowUpRight, ArrowDownRight, BarChart3, ShieldCheck
@@ -33,18 +34,15 @@ export default function ProductROIPage() {
       sao: "São Cristóvão", golden: "Golden Cross",
     };
 
-    dataA.forEach(row => {
+    safeArray(dataA).forEach(row => {
       const name = (row.campaign_name || "").toLowerCase();
       let product = "Outros";
       for (const [key, label] of Object.entries(tokens)) {
         if (name.includes(key)) { product = label; break; }
       }
-
       if (!productMap[product]) productMap[product] = { spend: 0, leads: 0 };
       productMap[product].spend += parseFloat(row.spend || "0");
-      productMap[product].leads += extractMetric(row.actions, [
-        "lead", "leadgen.other", "offsite_conversion.fb_pixel_lead", "complete_registration"
-      ]);
+      productMap[product].leads += extractMetric(row.actions, LEAD_ACTION_TYPES);
     });
 
     // Merge CRM sales data
@@ -94,7 +92,8 @@ export default function ProductROIPage() {
     }), { spend: 0, leads: 0, sales: 0, revenue: 0 });
   }, [products]);
 
-  const realROAS = totals.spend > 0 ? totals.revenue / totals.spend : 0;
+  const realROAS = totals.spend > 0 && totals.revenue > 0 ? totals.revenue / totals.spend : null;
+  const hasSalesData = totals.revenue > 0 || totals.sales > 0;
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -117,9 +116,9 @@ export default function ProductROIPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[
           { label: "Investimento Total", value: formatCurrency(totals.spend), icon: DollarSign, color: "text-white" },
-          { label: "Faturamento Real", value: formatCurrency(totals.revenue), icon: TrendingUp, color: "text-success" },
+          { label: "Faturamento Real", value: hasSalesData ? formatCurrency(totals.revenue) : "—", icon: TrendingUp, color: hasSalesData ? "text-success" : "text-muted" },
           { label: "Leads Gerados", value: formatNumber(totals.leads), icon: Users, color: "text-accent" },
-          { label: "ROAS Real", value: `${realROAS.toFixed(2)}x`, icon: Target, color: realROAS >= 1 ? "text-success" : "text-danger" },
+          { label: "ROAS Real", value: realROAS !== null ? `${realROAS.toFixed(2)}x` : "Sem vendas", icon: Target, color: realROAS !== null && realROAS >= 1 ? "text-success" : "text-muted" },
         ].map(kpi => (
           <div key={kpi.label} className="glass p-4 sm:p-5 group hover:scale-[1.02] transition-all">
             <div className="flex items-center gap-2 mb-3">
@@ -130,6 +129,19 @@ export default function ProductROIPage() {
           </div>
         ))}
       </div>
+
+      {/* No sales data banner */}
+      {!hasSalesData && (
+        <div className="glass p-4 border-warning/20 flex items-center gap-3">
+          <ShieldCheck className="w-5 h-5 text-warning flex-shrink-0" />
+          <div>
+            <p className="text-xs font-bold text-white">Dados de vendas não configurados</p>
+            <p className="text-[10px] text-muted mt-0.5">
+              Importe uma planilha CSV na aba <strong className="text-accent">Central de Inteligência → Integração BI</strong> para ver ROAS e faturamento real.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Product breakdown table */}
       <div className="glass overflow-hidden">
