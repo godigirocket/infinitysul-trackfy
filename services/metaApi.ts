@@ -58,6 +58,8 @@ export const fetchMetaInsights = async (
   const level = params.level || "campaign";
 
   const isMaximum = params.period === "maximum";
+  // Short periods (today/yesterday) at ad level can 500 with too many fields
+  const isShortPeriod = params.period === "today" || params.period === "yesterday";
 
   // Base fields — safe for all levels and periods
   const fieldsArr = [
@@ -72,13 +74,13 @@ export const fetchMetaInsights = async (
     "date_stop",
   ];
 
-  // frequency + ctr not available with breakdowns or maximum on ad level
-  if (!params.breakdowns && !isMaximum) {
+  // frequency + ctr not available with breakdowns, maximum, or short periods at ad level
+  if (!params.breakdowns && !isMaximum && !(isShortPeriod && level === "ad")) {
     fieldsArr.push("frequency", "ctr");
   }
 
-  // video fields — safe at campaign/adset, skip at ad+maximum to avoid 500
-  if (!(level === "ad" && isMaximum)) {
+  // video fields — skip at ad+maximum and ad+short to avoid 500
+  if (!(level === "ad" && (isMaximum || isShortPeriod))) {
     fieldsArr.push(
       "video_p25_watched_actions",
       "video_p50_watched_actions",
@@ -93,8 +95,8 @@ export const fetchMetaInsights = async (
   }
   if (level === "ad") {
     fieldsArr.push("ad_name", "ad_id");
-    // quality_ranking and video_30_sec cause 500 with maximum — skip
-    if (!isMaximum) {
+    // quality_ranking and video_30_sec cause 500 with maximum or short periods
+    if (!isMaximum && !isShortPeriod) {
       fieldsArr.push("quality_ranking", "video_30_sec_watched_actions");
     }
   }

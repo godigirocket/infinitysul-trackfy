@@ -128,7 +128,9 @@ export function ControlBar() {
     placementFilters, setPlacementFilters
   } = useAppStore();
 
-  if (!hierarchy) return null;
+  if (!hierarchy) return (
+    <div className="h-14 border-b border-white/5" />
+  );
 
   return (
     <div className="sticky top-0 z-40 w-full bg-background/80 backdrop-blur-md border-b border-white/5 py-4 px-8 animate-in fade-in slide-in-from-top-4 duration-500">
