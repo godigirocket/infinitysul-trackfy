@@ -31,10 +31,19 @@ const PRESETS: DatePreset[] = [
 export function DateRangePicker() {
   const { period, customStart, customEnd, isCompare, setPeriod, setCustomRange, setIsCompare } = useAppStore();
   const [isOpen, setIsOpen] = useState(false);
-  const [tempStart, setTempStart] = useState<Date | null>(customStart ? new Date(customStart) : null);
-  const [tempEnd, setTempEnd] = useState<Date | null>(customEnd ? new Date(customEnd) : null);
-  const [viewMonth, setViewMonth] = useState(new Date());
-  
+  // Initialize dates lazily (client-only) to avoid SSR/client mismatch (#418)
+  const [tempStart, setTempStart] = useState<Date | null>(null);
+  const [tempEnd, setTempEnd] = useState<Date | null>(null);
+  const [viewMonth, setViewMonth] = useState<Date | null>(null);
+
+  // Set date state only on client after mount
+  useEffect(() => {
+    setTempStart(customStart ? new Date(customStart) : null);
+    setTempEnd(customEnd ? new Date(customEnd) : null);
+    setViewMonth(new Date());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Close on click outside
@@ -139,7 +148,7 @@ export function DateRangePicker() {
         <ChevronLeft className={cn("w-4 h-4 text-muted transition-transform ml-2", isOpen ? "rotate-90" : "-rotate-90")} />
       </button>
 
-      {isOpen && (
+      {isOpen && viewMonth && (
         <div className="absolute top-full right-0 mt-3 z-[100] glass border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-2xl flex overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 min-w-[700px]">
           {/* Presets List */}
           <div className="w-48 border-r border-white/5 py-4 flex flex-col gap-1">
@@ -160,20 +169,20 @@ export function DateRangePicker() {
           {/* Custom Calendar View */}
           <div className="p-6">
             <div className="flex gap-8">
-              {renderCalendar(viewMonth)}
-              {renderCalendar(addMonths(viewMonth, 1))}
+              {viewMonth && renderCalendar(viewMonth)}
+              {viewMonth && renderCalendar(addMonths(viewMonth, 1))}
             </div>
 
             <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/5">
               <div className="flex items-center gap-2">
                 <button 
-                  onClick={() => setViewMonth(subMonths(viewMonth, 1))}
+                  onClick={() => setViewMonth(v => v ? subMonths(v, 1) : new Date())}
                   className="p-1.5 hover:bg-white/5 rounded-lg transition-colors border border-white/10"
                 >
                   <ChevronLeft className="w-4 h-4 text-white" />
                 </button>
                 <button 
-                  onClick={() => setViewMonth(addMonths(viewMonth, 1))}
+                  onClick={() => setViewMonth(v => v ? addMonths(v, 1) : new Date())}
                   className="p-1.5 hover:bg-white/5 rounded-lg transition-colors border border-white/10"
                 >
                   <ChevronRight className="w-4 h-4 text-white" />
