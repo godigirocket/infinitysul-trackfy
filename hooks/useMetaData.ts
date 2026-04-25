@@ -14,6 +14,7 @@ import { fetchSupabaseLeads } from "@/lib/supabase";
 // Global flag — only one fetch runs at a time across all component instances
 let isFetching = false;
 let lastFetchKey = "";
+let currentAbortController: AbortController | null = null;
 
 export async function runRefresh() {
   const { token, accountId, period, customStart, customEnd, isCompare } =
@@ -22,8 +23,12 @@ export async function runRefresh() {
   if (!token || !accountId) return;
 
   const key = `${token}|${accountId}|${period}|${customStart}|${customEnd}|${isCompare}`;
-  if (isFetching) return; // already running
-  if (key === lastFetchKey) return; // same params, skip
+  if (isFetching) return;
+  if (key === lastFetchKey) return;
+
+  // Cancel any previous in-flight request
+  if (currentAbortController) currentAbortController.abort();
+  currentAbortController = new AbortController();
 
   isFetching = true;
   lastFetchKey = key;
@@ -109,12 +114,18 @@ export async function runRefresh() {
 
     useAppStore.getState().setLastSync(new Date().toLocaleTimeString());
   } catch (error: any) {
+    // Don't report aborted requests as errors
+    if (error?.name === "AbortError") {
+      isFetching = false;
+      return;
+    }
     console.error("[MetaAPI] Fatal error:", error);
     useAppStore
       .getState()
       .setApiError(error?.message || "Erro desconhecido na API do Facebook");
   } finally {
     isFetching = false;
+    currentAbortController = null;
     useAppStore.getState().setLoading(false);
   }
 }

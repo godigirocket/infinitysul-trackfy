@@ -11,15 +11,24 @@ export const normalizeAccountId = (id: string): string => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // All Meta API calls go through /api/meta (server-side proxy)
-// This avoids CORS blocks and browser timeouts on large datasets
 // ─────────────────────────────────────────────────────────────────────────────
-async function metaFetch(url: string): Promise<any> {
+async function metaFetch(url: string, attempt = 0): Promise<any> {
   const res = await fetch("/api/meta", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url }),
   });
   const json = await res.json();
+
+  // Retry on 504 / transient errors (max 3 attempts, exponential backoff)
+  if (res.status === 504 || json?.error?.is_transient) {
+    if (attempt < 2) {
+      const delay = (attempt + 1) * 2000; // 2s, 4s
+      await new Promise(r => setTimeout(r, delay));
+      return metaFetch(url, attempt + 1);
+    }
+  }
+
   if (json.error) {
     console.error("[MetaAPI] Error:", json.error);
     throw new Error(json.error.message || "Meta API error");
@@ -27,14 +36,16 @@ async function metaFetch(url: string): Promise<any> {
   return json;
 }
 
-async function paginateAll(firstUrl: string): Promise<any[]> {
+async function paginateAll(firstUrl: string, maxPages = 20): Promise<any[]> {
   let results: any[] = [];
   let url: string | null = firstUrl;
+  let pages = 0;
 
-  while (url) {
+  while (url && pages < maxPages) {
     const json = await metaFetch(url);
     results = results.concat(json.data || []);
     url = json.paging?.next || null;
+    pages++;
   }
 
   return results;
@@ -220,15 +231,22 @@ export const fetchBreakdowns = async (
 export const fetchCreativesHD = async (accountId: string, token: string): Promise<Record<string, string>> => {
   const id = normalizeAccountId(accountId);
 
-  // Get all ads with their creative IDs and direct image fields
-  const adsUrl = `${BASE_URL}/${id}/ads?fields=id,name,creative{id,name,image_url,thumbnail_url,object_story_spec,asset_feed_spec}&limit=500&access_token=${token}`;
+  // Fetch ads in batches of 100 to avoid "reduce data" error
+  // Use minimal fields — only what we need for the image URL
+  const adsUrl = `${BASE_URL}/${id}/ads?fields=id,creative{id,image_url,thumbnail_url,object_story_spec}&limit=100&access_token=${token}`;
 
   let ads: any[] = [];
   try {
-    ads = await paginateAll(adsUrl);
-  } catch (e) {
-    console.warn("[MetaAPI] fetchCreativesHD ads fetch failed:", e);
-    return {};
+    ads = await paginateAll(adsUrl, 10); // max 10 pages = 1000 ads
+  } catch (e: any) {
+    // If still too much data, try with even fewer fields
+    try {
+      const minUrl = `${BASE_URL}/${id}/ads?fields=id,creative{id,image_url,thumbnail_url}&limit=50&access_token=${token}`;
+      ads = await paginateAll(minUrl, 10);
+    } catch (e2) {
+      console.warn("[MetaAPI] fetchCreativesHD failed:", e2);
+      return {};
+    }
   }
 
   const urlMap: Record<string, string> = {};
@@ -237,10 +255,8 @@ export const fetchCreativesHD = async (accountId: string, token: string): Promis
     const creative = ad.creative;
     if (!creative) continue;
 
-    // image_url on the creative object = original resolution
     let hdUrl = creative.image_url;
 
-    // Fallback: check object_story_spec for image hash or link data
     if (!hdUrl && creative.object_story_spec) {
       const spec = creative.object_story_spec;
       hdUrl = spec.link_data?.image_url
@@ -248,9 +264,7 @@ export const fetchCreativesHD = async (accountId: string, token: string): Promis
         || spec.video_data?.image_url;
     }
 
-    // Last resort: thumbnail
     if (!hdUrl) hdUrl = creative.thumbnail_url;
-
     if (hdUrl) urlMap[ad.id] = hdUrl;
   }
 

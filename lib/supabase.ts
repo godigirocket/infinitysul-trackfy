@@ -3,15 +3,18 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-/**
- * Lazy-initialized Supabase client.
- * Returns null during build/SSR when env vars are not available.
- */
 let _client: SupabaseClient | null = null;
+let _notConfiguredLogged = false; // log only once
 
 function getClient(): SupabaseClient | null {
   if (_client) return _client;
-  if (!supabaseUrl || !supabaseAnonKey) return null;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    if (!_notConfiguredLogged) {
+      console.info("[Supabase] Not configured. Lead sync disabled.");
+      _notConfiguredLogged = true;
+    }
+    return null;
+  }
   _client = createClient(supabaseUrl, supabaseAnonKey);
   return _client;
 }
@@ -24,10 +27,7 @@ export const supabase = { get client() { return getClient(); } };
  */
 export const fetchSupabaseLeads = async () => {
   const client = getClient();
-  if (!client) {
-    console.warn("[Supabase] Not configured. Skipping lead sync.");
-    return [];
-  }
+  if (!client) return [];
 
   try {
     // Try 'leads' table first, fallback to 'crm_leads'
