@@ -14,21 +14,24 @@ import { fetchSupabaseLeads } from "@/lib/supabase";
 // Global flag — only one fetch runs at a time across all component instances
 let isFetching = false;
 let lastFetchKey = "";
-let currentAbortController: AbortController | null = null;
+
+export function clearFetchCache() {
+  lastFetchKey = "";
+  isFetching = false;
+}
 
 export async function runRefresh() {
+  // Always read fresh from store — never use stale closure values
   const { token, accountId, period, customStart, customEnd, isCompare } =
     useAppStore.getState();
 
   if (!token || !accountId) return;
 
   const key = `${token}|${accountId}|${period}|${customStart}|${customEnd}|${isCompare}`;
+
+  // Skip only if currently fetching the exact same key
   if (isFetching) return;
   if (key === lastFetchKey) return;
-
-  // Cancel any previous in-flight request
-  if (currentAbortController) currentAbortController.abort();
-  currentAbortController = new AbortController();
 
   isFetching = true;
   lastFetchKey = key;
@@ -114,18 +117,12 @@ export async function runRefresh() {
 
     useAppStore.getState().setLastSync(new Date().toLocaleTimeString());
   } catch (error: any) {
-    // Don't report aborted requests as errors
-    if (error?.name === "AbortError") {
-      isFetching = false;
-      return;
-    }
     console.error("[MetaAPI] Fatal error:", error);
     useAppStore
       .getState()
       .setApiError(error?.message || "Erro desconhecido na API do Facebook");
   } finally {
     isFetching = false;
-    currentAbortController = null;
     useAppStore.getState().setLoading(false);
   }
 }

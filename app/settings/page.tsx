@@ -13,7 +13,7 @@ import {
   XCircle,
   Database
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { fetchMetaInsights } from "@/services/metaApi";
 
 export default function SettingsPage() {
@@ -23,8 +23,11 @@ export default function SettingsPage() {
     geminiKey, setGeminiKey
   } = useAppStore();
 
+  const [mounted, setMounted] = useState(false);
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => { setMounted(true); }, []);
 
   const handleTest = async () => {
     if (!token || !accountId) return;
@@ -67,10 +70,11 @@ export default function SettingsPage() {
                 <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/50" />
                 <Input 
                   type="password" 
-                  value={token} 
+                  value={mounted ? token : ""}
                   onChange={(e) => setToken(e.target.value)}
                   placeholder="EAAB..." 
                   className="pl-10 h-11 bg-white/[0.02]"
+                  suppressHydrationWarning
                 />
               </div>
             </div>
@@ -80,10 +84,11 @@ export default function SettingsPage() {
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted/50" />
                 <Input 
-                  value={accountId} 
+                  value={mounted ? accountId : ""}
                   onChange={(e) => setAccountId(e.target.value)}
                   placeholder="act_..." 
                   className="pl-10 h-11 bg-white/[0.02]"
+                  suppressHydrationWarning
                 />
               </div>
             </div>
@@ -102,10 +107,11 @@ export default function SettingsPage() {
             <label className="text-[11px] font-bold text-muted uppercase tracking-wider ml-1">Gemini API Key</label>
             <Input 
               type="password" 
-              value={geminiKey} 
+              value={mounted ? geminiKey : ""}
               onChange={(e) => setGeminiKey(e.target.value)}
               placeholder="AIzaSy..." 
               className="h-11 bg-white/[0.02]"
+              suppressHydrationWarning
             />
           </div>
         </div>

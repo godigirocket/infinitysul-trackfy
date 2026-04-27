@@ -7,11 +7,11 @@ import {
   formatPercent, 
   extractMetric, 
   calcDiff,
-  LEAD_ACTION_TYPES,
   CONVERSATION_ACTION_TYPES
 } from "@/lib/formatters";
+import { safeArray } from "@/lib/safeArray";
 import { cn } from "@/components/ui/Button";
-import { DollarSign, Users, MessageSquare, ClipboardCheck } from "lucide-react";
+import { DollarSign, MessageSquare, Eye, MousePointer2 } from "lucide-react";
 
 interface KpiCardProps {
   title: string;
@@ -23,8 +23,8 @@ interface KpiCardProps {
 }
 
 function KpiCard({ title, value, diff, subtitle, icon: Icon, color }: KpiCardProps) {
-  const isPositive = diff && diff > 0;
-  const isNegative = diff && diff < 0;
+  const isPositive = diff !== undefined && diff > 0;
+  const isNegative = diff !== undefined && diff < 0;
 
   return (
     <div className="glass p-4 sm:p-6 transition-all hover:translate-y-[-2px] hover:shadow-xl group">
@@ -55,63 +55,60 @@ function KpiCard({ title, value, diff, subtitle, icon: Icon, color }: KpiCardPro
 export function KpiGrid() {
   const { dataA, dataB, isCompare, searchQuery } = useAppStore();
 
-  const filterData = (data: any[]) => {
-    return data.filter(item => {
-      if (!searchQuery) return true;
-      const matchesSearch = (item.campaign_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            (item.ad_name || "").toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesSearch;
-    });
-  };
+  const filterData = (data: any[]) =>
+    safeArray(data).filter(item =>
+      !searchQuery ||
+      (item.campaign_name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.ad_name || "").toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
   const aggregate = (data: any[]) => {
-    let totals = { spend: 0, leads: 0, convs: 0, regs: 0 };
-    data.forEach(r => {
-      totals.spend += parseFloat(r.spend || "0");
-      totals.leads += extractMetric(r.actions, LEAD_ACTION_TYPES);
-      totals.convs += extractMetric(r.actions, CONVERSATION_ACTION_TYPES);
-      totals.regs += extractMetric(r.actions, ['complete_registration']);
+    let spend = 0, convs = 0, impressions = 0, clicks = 0;
+    safeArray(data).forEach(r => {
+      spend += parseFloat(r.spend || "0");
+      convs += extractMetric(r.actions, CONVERSATION_ACTION_TYPES);
+      impressions += parseInt(r.impressions || "0");
+      clicks += parseInt(r.clicks || "0");
     });
-    return totals;
+    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+    const cpc = clicks > 0 ? spend / clicks : 0;
+    return { spend, convs, impressions, clicks, ctr, cpc };
   };
 
-  const filteredA = filterData(dataA);
-  const filteredB = isCompare ? filterData(dataB) : [];
-
-  const tA = aggregate(filteredA);
-  const tB = isCompare ? aggregate(filteredB) : null;
+  const tA = aggregate(filterData(dataA));
+  const tB = isCompare ? aggregate(filterData(dataB)) : null;
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-      <KpiCard 
-        title="Investimento" 
-        value={formatCurrency(tA.spend)} 
+      <KpiCard
+        title="Investimento"
+        value={formatCurrency(tA.spend)}
         diff={tB ? calcDiff(tA.spend, tB.spend) : undefined}
         icon={DollarSign}
         color="text-white"
       />
-      <KpiCard 
-        title="Leads Gerados" 
-        value={formatNumber(tA.leads)} 
-        diff={tB ? calcDiff(tA.leads, tB.leads) : undefined}
-        subtitle={`CPL: ${formatCurrency(tA.leads > 0 ? tA.spend / tA.leads : 0)}`}
-        icon={Users}
-        color="text-accent"
-      />
-      <KpiCard 
-        title="Conversas" 
-        value={formatNumber(tA.convs)} 
+      <KpiCard
+        title="Conversas"
+        value={formatNumber(tA.convs)}
         diff={tB ? calcDiff(tA.convs, tB.convs) : undefined}
         subtitle={`Custo: ${formatCurrency(tA.convs > 0 ? tA.spend / tA.convs : 0)}`}
         icon={MessageSquare}
         color="text-warning"
       />
-      <KpiCard 
-        title="Cadastros" 
-        value={formatNumber(tA.regs)} 
-        diff={tB ? calcDiff(tA.regs, tB.regs) : undefined}
-        subtitle={`Custo: ${formatCurrency(tA.regs > 0 ? tA.spend / tA.regs : 0)}`}
-        icon={ClipboardCheck}
+      <KpiCard
+        title="Impressões"
+        value={formatNumber(tA.impressions)}
+        diff={tB ? calcDiff(tA.impressions, tB.impressions) : undefined}
+        subtitle={`CTR: ${tA.ctr.toFixed(2)}%`}
+        icon={Eye}
+        color="text-accent"
+      />
+      <KpiCard
+        title="Cliques"
+        value={formatNumber(tA.clicks)}
+        diff={tB ? calcDiff(tA.clicks, tB.clicks) : undefined}
+        subtitle={`CPC: ${formatCurrency(tA.cpc)}`}
+        icon={MousePointer2}
         color="text-success"
       />
     </div>

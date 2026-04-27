@@ -230,18 +230,18 @@ export const fetchBreakdowns = async (
 // ─────────────────────────────────────────────────────────────────────────────
 export const fetchCreativesHD = async (accountId: string, token: string): Promise<Record<string, string>> => {
   const id = normalizeAccountId(accountId);
+  const urlMap: Record<string, string> = {};
 
-  // Fetch ads in batches of 100 to avoid "reduce data" error
-  // Use minimal fields — only what we need for the image URL
-  const adsUrl = `${BASE_URL}/${id}/ads?fields=id,creative{id,image_url,thumbnail_url,object_story_spec}&limit=100&access_token=${token}`;
-
+  // Fetch ads with creative fields — use thumbnail_url as primary (works for video+image)
+  // Also request previews for video ads that don't have image_url
   let ads: any[] = [];
   try {
-    ads = await paginateAll(adsUrl, 10); // max 10 pages = 1000 ads
-  } catch (e: any) {
-    // If still too much data, try with even fewer fields
+    const adsUrl = `${BASE_URL}/${id}/ads?fields=id,creative{id,image_url,thumbnail_url,object_story_spec,effective_object_story_id}&limit=100&access_token=${token}`;
+    ads = await paginateAll(adsUrl, 10);
+  } catch (e) {
     try {
-      const minUrl = `${BASE_URL}/${id}/ads?fields=id,creative{id,image_url,thumbnail_url}&limit=50&access_token=${token}`;
+      // Minimal fallback
+      const minUrl = `${BASE_URL}/${id}/ads?fields=id,creative{id,thumbnail_url,image_url}&limit=50&access_token=${token}`;
       ads = await paginateAll(minUrl, 10);
     } catch (e2) {
       console.warn("[MetaAPI] fetchCreativesHD failed:", e2);
@@ -249,12 +249,11 @@ export const fetchCreativesHD = async (accountId: string, token: string): Promis
     }
   }
 
-  const urlMap: Record<string, string> = {};
-
   for (const ad of ads) {
     const creative = ad.creative;
     if (!creative) continue;
 
+    // Priority: image_url (static) > object_story_spec image > thumbnail_url (video preview)
     let hdUrl = creative.image_url;
 
     if (!hdUrl && creative.object_story_spec) {
@@ -264,7 +263,9 @@ export const fetchCreativesHD = async (accountId: string, token: string): Promis
         || spec.video_data?.image_url;
     }
 
+    // thumbnail_url works for BOTH image and video ads — use as fallback
     if (!hdUrl) hdUrl = creative.thumbnail_url;
+
     if (hdUrl) urlMap[ad.id] = hdUrl;
   }
 
@@ -305,8 +306,8 @@ export const fetchAccountStructure = async (accountId: string, token: string) =>
   const account_id = normalizeAccountId(accountId);
 
   const [campaigns, adsets, ads] = await Promise.all([
-    metaFetch(`${BASE_URL}/${account_id}/campaigns?fields=name,id,effective_status,objective&limit=1000&access_token=${token}`),
-    metaFetch(`${BASE_URL}/${account_id}/adsets?fields=name,id,effective_status,campaign_id&limit=1000&access_token=${token}`),
+    metaFetch(`${BASE_URL}/${account_id}/campaigns?fields=name,id,effective_status,objective,daily_budget,lifetime_budget,budget_remaining,start_time,stop_time&limit=1000&access_token=${token}`),
+    metaFetch(`${BASE_URL}/${account_id}/adsets?fields=name,id,effective_status,campaign_id,daily_budget,lifetime_budget,targeting,optimization_goal,billing_event&limit=1000&access_token=${token}`),
     metaFetch(`${BASE_URL}/${account_id}/ads?fields=name,id,effective_status,adset_id,campaign_id,creative{id,image_url,thumbnail_url}&limit=1000&access_token=${token}`),
   ]);
 

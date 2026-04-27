@@ -1,7 +1,7 @@
 "use client";
 
 import { useAppStore } from "@/store/useAppStore";
-import { useMetaData } from "@/hooks/useMetaData";
+import { useMetaData, clearFetchCache } from "@/hooks/useMetaData";
 import { useMemo, useState, useEffect } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { safeArray } from "@/lib/safeArray";
@@ -16,8 +16,14 @@ const CreativeCard = dynamic(
 export default function CreativeHubPage() {
   const { dataAds, searchQuery, creativesHD, isLoading } = useAppStore();
   const [mounted, setMounted] = useState(false);
-  useMetaData();
-  useEffect(() => { setMounted(true); }, []);
+  const { refresh } = useMetaData();
+
+  useEffect(() => {
+    setMounted(true);
+    // Clear cache so creatives always refresh when visiting this page
+    clearFetchCache();
+    refresh();
+  }, []);
 
   const safeHD: Record<string, string> = creativesHD || {};
 

@@ -21,11 +21,10 @@ export function CylinderFunnel() {
     const sales = crmLeads.filter(l => l.status === "converted").length;
 
     return [
-      { label: "Impressões", value: impressions, color: "#6366f1", icon: Eye },
-      { label: "Cliques",    value: clicks,      color: "#8b5cf6", icon: MousePointer2 },
-      { label: "Leads",      value: leads,       color: "#10b981", icon: UserCheck },
+      { label: "Impressões", value: impressions,   color: "#6366f1", icon: Eye },
+      { label: "Cliques",    value: clicks,        color: "#8b5cf6", icon: MousePointer2 },
       { label: "Conversas",  value: conversations, color: "#f59e0b", icon: MessageSquare },
-      { label: "Vendas",     value: sales,       color: "#ef4444", icon: ShoppingCart },
+      { label: "Vendas",     value: sales,         color: "#ef4444", icon: ShoppingCart },
     ];
   }, [dataA, crmLeads]);
 
