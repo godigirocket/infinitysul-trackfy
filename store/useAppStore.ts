@@ -210,6 +210,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
         if (saved[key] !== undefined) (patch as any)[key] = saved[key];
       }
       if (Object.keys(patch).length > 0) set(patch as any);
+      // Note: runRefresh is called by StoreHydration after _hydrate completes
     } catch {}
   },
 }));

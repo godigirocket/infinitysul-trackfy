@@ -21,7 +21,7 @@ export async function runRefresh() {
 
   if (!token || !accountId) return;
 
-  const key = `${accountId}|${period}|${customStart}|${customEnd}|${isCompare}`;
+  const key = `${token}|${accountId}|${period}|${customStart}|${customEnd}|${isCompare}`;
   if (isFetching || key === lastFetchKey) return;
 
   isFetching = true;
@@ -101,7 +101,10 @@ export function useMetaData() {
   const isCompare = useAppStore(s => s.isCompare);
 
   useEffect(() => {
-    runRefresh();
+    // Only run when we actually have credentials
+    if (token && accountId) {
+      runRefresh();
+    }
   }, [token, accountId, period, customStart, customEnd, isCompare]);
 
   return { refresh: runRefresh };
