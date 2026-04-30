@@ -22,6 +22,7 @@ export const metadata: Metadata = {
 import { CampaignDrawer } from "@/components/campaigns/CampaignDrawer";
 import { StoreHydration } from "@/components/StoreHydration";
 import { ToastProvider } from "@/components/ui/Toast";
+import { ChatAssistant } from "@/components/chat/ChatAssistant";
 
 export default function RootLayout({
   children,
@@ -42,6 +43,7 @@ export default function RootLayout({
               {children}
             </div>
           </main>
+          <ChatAssistant />
         </ToastProvider>
       </body>
     </html>

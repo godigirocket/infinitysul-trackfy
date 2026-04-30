@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { fetchMetaInsights } from "@/services/metaApi";
+import { runRefresh, clearFetchCache } from "@/hooks/useMetaData";
 
 export default function SettingsPage() {
   const { 
@@ -42,6 +43,8 @@ export default function SettingsPage() {
   };
 
   const handleSave = () => {
+    clearFetchCache();
+    runRefresh();
     window.location.href = "/dashboard";
   };
 
