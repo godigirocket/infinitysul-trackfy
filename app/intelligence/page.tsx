@@ -34,13 +34,13 @@ const tabs = [
 
 export default function IntelligencePage() {
   const [activeTab, setActiveTab] = useState<TabType>("overview");
-  const { dataAds, isLoading } = useAppStore();
+  const { dataA, dataAds, isLoading } = useAppStore();
   useMetaData();
 
-  const allIntel = useMemo(() => runIntelligence(dataAds ?? []), [dataAds]);
+  const allIntel = useMemo(() => runIntelligence(dataA ?? []), [dataA]);
   const summary  = useMemo(() => calcIntelSummary(allIntel), [allIntel]);
 
-  if (!dataAds?.length && !isLoading) {
+  if (!dataA?.length && !isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center px-4">
         <Brain className="w-16 h-16 text-accent animate-pulse" />

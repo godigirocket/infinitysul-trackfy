@@ -11,7 +11,7 @@ import { readCache, writeCache, isCacheFresh } from "@/lib/syncCache";
 let isFetching = false;
 let lastFetchKey = "";
 let lastForceTime = 0;
-const FORCE_COOLDOWN_MS = 30_000; // 30s minimum between forced syncs
+const FORCE_COOLDOWN_MS = 120_000; // 120s minimum between forced syncs
 const CACHE_TTL_MINUTES = 10;
 
 export function clearFetchCache() {

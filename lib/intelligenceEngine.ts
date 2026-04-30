@@ -130,7 +130,7 @@ function generateSignal(
 ): { signal: CampaignIntel["signal"]; reason: string } {
   // Bad: No conversions despite meaningful spend
   if (spend > 50 && leads === 0) {
-    return { signal: "optimize", reason: "Gasto contínuo sem conversões" };
+    return { signal: "optimize", reason: "Gasto sem conversões" };
   }
   // Critical: High CPL + High Frequency = Audience fatigue
   if (cpl > 0 && avgCpl > 0 && cpl > avgCpl * 1.4 && frequency > 3.5) {

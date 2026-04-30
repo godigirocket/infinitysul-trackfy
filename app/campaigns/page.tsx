@@ -6,7 +6,7 @@ import { runRefresh, clearFetchCache } from "@/hooks/useMetaData";
 import { updateCampaign, updateAdset, updateAd } from "@/services/metaApi";
 import { formatCurrency, formatNumber, extractMetric, CONVERSATION_ACTION_TYPES } from "@/lib/formatters";
 import { safeArray } from "@/lib/safeArray";
-import { ChevronDown, ChevronRight, Edit2, Power, RefreshCw, Save, X, ImageIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, Edit2, Power, Save, X, ImageIcon, RefreshCw } from "lucide-react";
 
 const OBJECTIVE_LABELS: Record<string, string> = {
   OUTCOME_TRAFFIC: "Tráfego", OUTCOME_ENGAGEMENT: "Engajamento",
@@ -135,11 +135,6 @@ export default function CampaignsPage() {
           <h1 className="text-2xl font-bold">Gerenciar Campanhas</h1>
           <p className="text-sm text-muted">{campaigns.length} campanhas • Clique na seta para expandir</p>
         </div>
-        <button onClick={() => { clearFetchCache(); runRefresh(); }} disabled={isLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-accent/20 border border-accent/30 rounded-xl text-sm font-bold hover:bg-accent/30 transition-all disabled:opacity-50">
-          <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-          Sincronizar
-        </button>
       </div>
 
       {apiError && (

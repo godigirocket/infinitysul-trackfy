@@ -36,8 +36,8 @@ export function SummaryCards({ summary }: SummaryProps) {
       bg: "bg-accent/10"
     },
     { 
-      label: "Total de Leads", 
-      value: summary.totalLeads.toLocaleString("pt-BR"), 
+      label: "Conversas/Leads", 
+      value: (summary.totalLeads > 0 ? summary.totalLeads : summary.totalConversations).toLocaleString("pt-BR"), 
       icon: Users, 
       color: "text-success",
       bg: "bg-success/10"

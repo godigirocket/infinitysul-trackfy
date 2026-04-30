@@ -269,11 +269,6 @@ export default function CreativeHubPage() {
           <p className="text-[13px] text-white/40 mt-1">Analise, compare e otimize cada criativo em tempo real.</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <button onClick={handleSync} disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.08] text-white/70 hover:text-white text-[12px] font-semibold rounded-xl transition-all disabled:opacity-40">
-            <RotateCw className={cn("w-3.5 h-3.5", isLoading && "animate-spin")} />
-            Sync Meta
-          </button>
           <button className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent-2 text-white text-[12px] font-semibold rounded-xl transition-all">
             <Sparkles className="w-3.5 h-3.5" />
             AI Insights
