@@ -54,6 +54,8 @@ interface AppStore extends AppState {
   setDrawerCampaignId: (id: string | null) => void;
   apiError: string | null;
   setApiError: (err: string | null) => void;
+  theme: "dark" | "light";
+  setTheme: (theme: "dark" | "light") => void;
   _hydrate: () => void;
 }
 
@@ -101,11 +103,19 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   apiError: null,
   drawerCampaignId: null,
   creativesHD: {},
+  theme: "dark",
 
   // ── actions ──
   setCreativesHD: (creativesHD) => set({ creativesHD }),
   setDrawerCampaignId: (drawerCampaignId) => set({ drawerCampaignId }),
   setApiError: (apiError) => set({ apiError }),
+  setTheme: (theme) => {
+    set({ theme });
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("light", theme === "light");
+    }
+    try { localStorage.setItem("tf-theme", theme); } catch {}
+  },
   setToken: (token) => {
     set({ token });
     _save({ token });
@@ -211,6 +221,14 @@ export const useAppStore = create<AppStore>()((set, get) => ({
       }
       if (Object.keys(patch).length > 0) set(patch as any);
       // Note: runRefresh is called by StoreHydration after _hydrate completes
+    } catch {}
+    // Restore theme
+    try {
+      const savedTheme = localStorage.getItem("tf-theme") as "dark" | "light" | null;
+      if (savedTheme) {
+        set({ theme: savedTheme });
+        document.documentElement.classList.toggle("light", savedTheme === "light");
+      }
     } catch {}
   },
 }));

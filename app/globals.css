@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    /* Obsidian Color System */
+    /* Obsidian Color System — Dark (default) */
     --bg:        #020617;
     --bg-2:      #0a0f1e;
     --surface:   #0d1424;
@@ -29,6 +29,21 @@
     --radius-xl: 20px;
   }
 
+  /* Light theme overrides */
+  html.light {
+    --bg:        #f8fafc;
+    --bg-2:      #f1f5f9;
+    --surface:   #ffffff;
+    --surface-2: #f8fafc;
+    --surface-3: #e2e8f0;
+    --text:      #0f172a;
+    --text-2:    #475569;
+    --text-3:    #94a3b8;
+    --border:    rgba(0,0,0,0.08);
+    --border-2:  rgba(0,0,0,0.12);
+    --accent-glow: rgba(124,58,237,0.15);
+  }
+
   * { box-sizing: border-box; }
 
   html { scroll-behavior: smooth; }
@@ -40,6 +55,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "ss01", "cv01";
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -66,6 +82,11 @@
     background: rgba(13,20,36,0.8);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+  }
+
+  html.light .glass {
+    background: rgba(255,255,255,0.9);
     border: 1px solid var(--border);
   }
 

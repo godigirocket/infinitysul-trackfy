@@ -115,7 +115,7 @@ export async function runRefresh(force = false) {
     }
 
     // ── Step 2: Hierarchy (campaigns/adsets/ads) — needed for campaign manager ──
-    await sleep(500);
+    await sleep(800);
     const hierRes = await fetchAccountStructure(accountId, token).catch(() => null);
     if (hierRes) {
       useAppStore.getState().setHierarchy(hierRes as any);
@@ -123,7 +123,7 @@ export async function runRefresh(force = false) {
     }
 
     // ── Step 3: Hourly data ──
-    await sleep(500);
+    await sleep(800);
     const hourlyRes = await fetchHourlyInsights(accountId, token, tp2).catch(() => []);
     if (hourlyRes.length > 0) {
       writeCache(accountId, periodKey, "hourly", hourlyRes);

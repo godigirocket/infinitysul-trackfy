@@ -23,9 +23,9 @@ export async function POST(req: Request) {
     return new Response(JSON.stringify({ error: { message: "URL not allowed" } }), { status: 400 });
   }
 
-  // 25s timeout — safely under Vercel Edge's 30s wall clock limit
+  // 55s timeout — safely under Vercel Edge's 60s wall clock limit
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000);
+  const timer = setTimeout(() => controller.abort(), 55000);
 
   try {
     const isWrite = method === "POST" || !!payload;

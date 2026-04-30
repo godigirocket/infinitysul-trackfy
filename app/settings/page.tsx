@@ -42,10 +42,13 @@ export default function SettingsPage() {
     }
   };
 
+  const [saved, setSaved] = useState(false);
+
   const handleSave = () => {
     clearFetchCache();
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
     runRefresh();
-    window.location.href = "/dashboard";
   };
 
   return (
@@ -136,8 +139,8 @@ export default function SettingsPage() {
             onClick={handleSave}
             className="flex-[2] h-12 font-bold uppercase tracking-widest text-[10px] gap-2 bg-accent hover:bg-accent/90 text-white shadow-xl"
           >
-            <Save className="w-4 h-4" />
-            Salvar e Sincronizar
+            {saved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+            {saved ? "Salvo!" : "Salvar e Sincronizar"}
           </Button>
         </div>
 

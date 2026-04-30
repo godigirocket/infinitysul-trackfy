@@ -56,8 +56,8 @@ export function Sidebar() {
   const syncStatus = isLoading ? "syncing" : token ? "connected" : "disconnected";
 
   return (
-    <aside className="fixed inset-y-0 left-0 w-[220px] flex flex-col z-50 border-r border-white/[0.05]"
-      style={{ background: "linear-gradient(180deg, #0a0f1e 0%, #020617 100%)" }}>
+    <aside className="fixed inset-y-0 left-0 w-[220px] flex flex-col z-50 border-r"
+      style={{ background: "var(--bg-2)", borderColor: "var(--border)" }}>
 
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 h-14 border-b border-white/[0.05] flex-shrink-0">

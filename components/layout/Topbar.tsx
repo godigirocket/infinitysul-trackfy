@@ -3,7 +3,7 @@
 import { useAppStore } from "@/store/useAppStore";
 import { runRefresh, clearFetchCache } from "@/hooks/useMetaData";
 import { useState, useEffect } from "react";
-import { RotateCw, ChevronDown, AlertCircle, Bot } from "lucide-react";
+import { RotateCw, AlertCircle, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const PERIODS = [
@@ -18,7 +18,7 @@ const PERIODS = [
 ];
 
 export function Topbar() {
-  const { period, setPeriod, isLoading, apiError, token, accountId } = useAppStore();
+  const { period, setPeriod, isLoading, apiError, token, accountId, theme, setTheme } = useAppStore();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
@@ -74,6 +74,18 @@ export function Topbar() {
               </button>
             ))}
           </div>
+
+          {/* Theme toggle */}
+          <button
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="p-1.5 rounded-lg text-white/40 hover:text-white/80 hover:bg-white/[0.06] transition-all"
+            title={theme === "dark" ? "Tema claro" : "Tema escuro"}
+            suppressHydrationWarning
+          >
+            {theme === "dark"
+              ? <Sun className="w-3.5 h-3.5" />
+              : <Moon className="w-3.5 h-3.5" />}
+          </button>
 
           {/* Sync */}
           <button onClick={handleSync} disabled={isLoading || !isConfigured}

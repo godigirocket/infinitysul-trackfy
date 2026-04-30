@@ -191,40 +191,61 @@ export const fetchBreakdowns = async (
 };
 
 // ── ACCOUNT STRUCTURE ─────────────────────────────────────────────────────
+// Sequential fetches to avoid rate limits — campaigns first, then adsets, then ads
 export const fetchAccountStructure = async (accountId: string, token: string) => {
   const id = normalizeAccountId(accountId);
   const t = `access_token=${token}`;
 
-  const [campsRes, adsetsRes, adsRes] = await Promise.allSettled([
-    metaGet(`${BASE}/${id}/campaigns?${t}&fields=id,name,effective_status,objective,daily_budget,lifetime_budget,status&limit=1000`),
-    metaGet(`${BASE}/${id}/adsets?${t}&fields=id,name,effective_status,campaign_id,daily_budget,lifetime_budget,optimization_goal,status&limit=1000`),
-    metaGet(`${BASE}/${id}/ads?${t}&fields=id,name,effective_status,adset_id,campaign_id,creative{id,thumbnail_url,image_url,name}&limit=1000`),
-  ]);
+  // Fetch sequentially with delays to avoid 80004 rate limit
+  let campaigns: any[] = [];
+  let adsets: any[] = [];
+  let ads: any[] = [];
 
-  return {
-    campaigns: (campsRes.status === "fulfilled" ? campsRes.value.data : []) as any[],
-    adsets: (adsetsRes.status === "fulfilled" ? adsetsRes.value.data : []) as any[],
-    ads: (adsRes.status === "fulfilled" ? adsRes.value.data : []) as any[],
-  };
+  try {
+    const campsRes = await metaGet(
+      `${BASE}/${id}/campaigns?${t}&fields=id,name,effective_status,objective,daily_budget,lifetime_budget&limit=500`
+    );
+    campaigns = campsRes.data || [];
+  } catch { /* ignore */ }
+
+  await new Promise(r => setTimeout(r, 600));
+
+  try {
+    const adsetsRes = await metaGet(
+      `${BASE}/${id}/adsets?${t}&fields=id,name,effective_status,campaign_id,daily_budget,lifetime_budget&limit=500`
+    );
+    adsets = adsetsRes.data || [];
+  } catch { /* ignore */ }
+
+  await new Promise(r => setTimeout(r, 600));
+
+  try {
+    const adsRes = await metaGet(
+      `${BASE}/${id}/ads?${t}&fields=id,name,effective_status,adset_id,campaign_id&limit=500`
+    );
+    ads = adsRes.data || [];
+  } catch { /* ignore */ }
+
+  return { campaigns, adsets, ads };
 };
 
 // ── CREATIVES HD ──────────────────────────────────────────────────────────
-// For messaging/video campaigns: thumbnail_url is the only reliable field
+// Request full-size images — thumbnail_url is low-res, use picture field for HD
 export const fetchCreativesHD = async (accountId: string, token: string): Promise<Record<string, string>> => {
   const id = normalizeAccountId(accountId);
   const urlMap: Record<string, string> = {};
 
   let ads: any[] = [];
   try {
-    // Request thumbnail_url first — works for ALL ad types (image, video, messaging)
+    // Request full picture + thumbnail — picture gives higher resolution
     ads = await paginate(
-      `${BASE}/${id}/ads?access_token=${token}&fields=id,creative{id,thumbnail_url,image_url,object_story_spec}&limit=100`,
+      `${BASE}/${id}/ads?access_token=${token}&fields=id,creative{id,thumbnail_url,image_url,picture,object_story_spec}&limit=100`,
       10
     );
   } catch {
     try {
       ads = await paginate(
-        `${BASE}/${id}/ads?access_token=${token}&fields=id,creative{id,thumbnail_url}&limit=50`,
+        `${BASE}/${id}/ads?access_token=${token}&fields=id,creative{id,thumbnail_url,picture}&limit=50`,
         10
       );
     } catch (e) {
@@ -236,9 +257,10 @@ export const fetchCreativesHD = async (accountId: string, token: string): Promis
   for (const ad of ads) {
     const c = ad.creative;
     if (!c) continue;
-    // thumbnail_url works for video + image + messaging ads
-    const url = c.thumbnail_url
+    // Prefer picture (full-size) over thumbnail_url (low-res)
+    const url = c.picture
       || c.image_url
+      || c.thumbnail_url
       || c.object_story_spec?.link_data?.image_url
       || c.object_story_spec?.photo_data?.url;
     if (url) urlMap[ad.id] = url;
