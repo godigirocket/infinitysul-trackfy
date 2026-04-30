@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
@@ -6,7 +6,11 @@ import { runRefresh, clearFetchCache } from "@/hooks/useMetaData";
 import { updateCampaign, updateAdset, updateAd } from "@/services/metaApi";
 import { formatCurrency, formatNumber, extractMetric, CONVERSATION_ACTION_TYPES } from "@/lib/formatters";
 import { safeArray } from "@/lib/safeArray";
-import { ChevronDown, ChevronRight, Edit2, Save, X, ImageIcon, RefreshCw, Search, Plus, Copy, BarChart3, MoreHorizontal, Filter } from "lucide-react";
+import { 
+  ChevronDown, ChevronRight, Edit2, Save, X, ImageIcon, RefreshCw, 
+  Search, Plus, Copy, Trash2, MoreHorizontal, Filter, Calendar, 
+  Columns, ArrowDownUp, Settings, Download, FlaskConical, LayoutGrid, Check
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const OBJECTIVE_LABELS: Record<string, string> = {
@@ -16,16 +20,16 @@ const OBJECTIVE_LABELS: Record<string, string> = {
   MESSAGES: "Mensagens", LINK_CLICKS: "Cliques", CONVERSIONS: "Conversões",
 };
 
-function budgetDisplay(obj: any): string {
-  if (obj.daily_budget) return `R$ ${(parseInt(obj.daily_budget) / 100).toFixed(2)}/dia`;
-  if (obj.lifetime_budget) return `R$ ${(parseInt(obj.lifetime_budget) / 100).toFixed(2)} total`;
-  return "Usando o orçam...";
+function budgetDisplay(obj: any): { amount: string, type: string } {
+  if (obj.daily_budget) return { amount: `R$ ${(parseInt(obj.daily_budget) / 100).toLocaleString("pt-BR", {minimumFractionDigits: 2})}`, type: "Diário" };
+  if (obj.lifetime_budget) return { amount: `R$ ${(parseInt(obj.lifetime_budget) / 100).toLocaleString("pt-BR", {minimumFractionDigits: 2})}`, type: "Total" };
+  return { amount: "Usando o orçam...", type: "" };
 }
 
 function StatusToggle({ active, onChange, size = "md" }: { active: boolean; onChange: () => void; size?: "sm" | "md" }) {
-  const w = size === "sm" ? "w-7 h-4" : "w-9 h-5";
+  const w = size === "sm" ? "w-8 h-4" : "w-10 h-5";
   const dot = size === "sm" ? "w-3 h-3" : "w-4 h-4";
-  const translate = size === "sm" ? "translate-x-3" : "translate-x-4";
+  const translate = size === "sm" ? "translate-x-4" : "translate-x-5";
   return (
     <button onClick={e => { e.stopPropagation(); onChange(); }}
       className={cn("relative inline-flex items-center rounded-full transition-colors duration-200 focus:outline-none flex-shrink-0", w,
@@ -42,18 +46,25 @@ function StatusDot({ status }: { status: string }) {
   const label = status === "ACTIVE" ? "Ativo" : status === "PAUSED" ? "Pausado" : status;
   return (
     <div className="flex items-center gap-1.5">
-      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
-      <span className="text-[12px]" style={{ color: "var(--text)" }}>{label}</span>
+      <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
+      <span className="text-[13px]" style={{ color: "var(--text)" }}>{label}</span>
     </div>
   );
 }
 
-function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
+function Th({ children, right, width }: { children: React.ReactNode; right?: boolean; width?: string }) {
   return (
-    <th className={cn("px-3 py-2.5 text-[11px] font-semibold whitespace-nowrap select-none border-b",
+    <th className={cn("px-3 py-2 text-[12px] font-medium whitespace-nowrap select-none border-b border-r last:border-r-0 relative group",
       right ? "text-right" : "text-left")}
-      style={{ color: "var(--text-2)", borderColor: "var(--border)", background: "var(--surface-2)" }}>
-      {children}
+      style={{ color: "var(--text)", borderColor: "var(--border)", background: "var(--surface)", width }}>
+      <div className={cn("flex items-center gap-1.5", right ? "justify-end" : "justify-start")}>
+        {children}
+        <div className="flex flex-col opacity-30 group-hover:opacity-100 cursor-pointer">
+          <ArrowDownUp className="w-3 h-3" />
+        </div>
+      </div>
+      {/* Drag handle mockup */}
+      <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-[#1877f2] opacity-0 hover:opacity-100 transition-opacity" />
     </th>
   );
 }
@@ -68,16 +79,18 @@ export default function CampaignsPage() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [activeTab, setActiveTab] = useState<"campaigns" | "adsets" | "ads">("campaigns");
 
   useEffect(() => { if (token && accountId) runRefresh(); }, [token, accountId]);
 
   const campaignMetrics = useMemo(() => {
-    const map: Record<string, { spend: number; impressions: number; clicks: number; convs: number }> = {};
+    const map: Record<string, { spend: number; impressions: number; clicks: number; convs: number; reach: number }> = {};
     safeArray(dataA).forEach(r => {
-      if (!map[r.campaign_id]) map[r.campaign_id] = { spend: 0, impressions: 0, clicks: 0, convs: 0 };
+      if (!map[r.campaign_id]) map[r.campaign_id] = { spend: 0, impressions: 0, clicks: 0, convs: 0, reach: 0 };
       map[r.campaign_id].spend += parseFloat(r.spend || "0");
       map[r.campaign_id].impressions += parseInt(r.impressions || "0");
       map[r.campaign_id].clicks += parseInt(r.clicks || "0");
+      map[r.campaign_id].reach += parseInt((r as any).reach || "0");
       map[r.campaign_id].convs += extractMetric(r.actions, CONVERSATION_ACTION_TYPES);
     });
     return map;
@@ -153,104 +166,207 @@ export default function CampaignsPage() {
     acc.impressions += m.impressions || 0;
     acc.clicks += m.clicks || 0;
     acc.convs += m.convs || 0;
+    acc.reach += m.reach || 0;
     return acc;
-  }, { spend: 0, impressions: 0, clicks: 0, convs: 0 });
+  }, { spend: 0, impressions: 0, clicks: 0, convs: 0, reach: 0 });
 
-  const btnBase = "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium border transition-all";
-  const btnStyle = { borderColor: "var(--border-2)", color: "var(--text-2)", background: "var(--surface)" };
+  const btnBase = "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium border transition-all hover:bg-black/5 dark:hover:bg-white/5";
+  const btnStyle = { borderColor: "var(--border-2)", color: "var(--text)", background: "var(--surface)" };
+
+  const activeTabStyle = "bg-[#e2e8f0] dark:bg-[var(--surface-3)]";
+  const inactiveTabStyle = "bg-transparent hover:bg-black/5 dark:hover:bg-white/5";
 
   return (
     <div className="-mx-6 lg:-mx-8">
-      {/* ── FB-style Action Toolbar ── */}
-      <div className="sticky top-14 z-20 flex flex-wrap items-center justify-between gap-2 px-6 lg:px-8 py-2.5 border-b"
+      {/* ── Top Tabs (FB-style) ── */}
+      <div className="sticky top-14 z-30 flex items-center justify-between px-4 lg:px-6 py-2 border-b"
         style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-semibold bg-[#1877f2] text-white hover:bg-[#166fe5] transition-colors">
-            <Plus className="w-3.5 h-3.5" /> Criar
+        
+        <div className="flex flex-wrap items-center gap-1">
+          {/* Campanhas Tab */}
+          <button 
+            onClick={() => setActiveTab("campaigns")}
+            className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md text-[14px] font-medium transition-colors border",
+              activeTab === "campaigns" ? activeTabStyle + " border-[var(--border-2)]" : inactiveTabStyle + " border-transparent",
+              someSelected && activeTab === "campaigns" ? "bg-[#e8f4ff] dark:bg-[rgba(24,119,242,0.15)] text-[#1877f2]" : "text-[var(--text)]")}
+          >
+            <div className={cn("flex items-center justify-center w-5 h-5 rounded-[4px]", 
+              someSelected && activeTab === "campaigns" ? "bg-[#1877f2] text-white" : "bg-[var(--surface-3)] text-[var(--text-3)]")}>
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </div>
+            Campanhas
+            {someSelected && activeTab === "campaigns" && (
+              <span className="flex items-center gap-1 bg-[#1877f2] text-white px-2 py-0.5 rounded-full text-[11px] font-semibold ml-1">
+                {selected.size} selecionado
+                <X className="w-3 h-3 cursor-pointer hover:opacity-80" onClick={(e) => { e.stopPropagation(); setSelected(new Set()); }} />
+              </span>
+            )}
           </button>
-          <button className={btnBase} style={btnStyle}>
-            <Copy className="w-3.5 h-3.5" /> Duplicar
+
+          {/* Conjuntos Tab */}
+          <button 
+            onClick={() => setActiveTab("adsets")}
+            className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md text-[14px] font-medium transition-colors border border-transparent",
+              activeTab === "adsets" ? activeTabStyle + " border-[var(--border-2)]" : inactiveTabStyle,
+              "text-[var(--text-2)] hover:text-[var(--text)]")}
+          >
+            <div className="flex flex-wrap gap-[1px] w-5 h-5 p-[2px] rounded-[4px] border border-[var(--text-3)] opacity-70">
+              <div className="bg-[var(--text-3)] w-[6px] h-[6px] rounded-[1px]" />
+              <div className="bg-[var(--text-3)] w-[6px] h-[6px] rounded-[1px]" />
+              <div className="bg-[var(--text-3)] w-[6px] h-[6px] rounded-[1px]" />
+              <div className="bg-[var(--text-3)] w-[6px] h-[6px] rounded-[1px]" />
+            </div>
+            Conjuntos de anúncios {someSelected ? `para ${selected.size} campanha${selected.size > 1 ? 's' : ''}` : ''}
           </button>
-          <button className={btnBase} style={btnStyle}
-            onClick={() => { const c = campaigns.find(x => selected.has(x.id)); if (c) startEdit(c); }}>
-            <Edit2 className="w-3.5 h-3.5" /> Editar
+
+          {/* Anúncios Tab */}
+          <button 
+            onClick={() => setActiveTab("ads")}
+            className={cn("flex items-center gap-2 px-3 py-1.5 rounded-md text-[14px] font-medium transition-colors border border-transparent",
+              activeTab === "ads" ? activeTabStyle + " border-[var(--border-2)]" : inactiveTabStyle,
+              "text-[var(--text-2)] hover:text-[var(--text)]")}
+          >
+            <div className="w-5 h-5 rounded-[4px] border border-[var(--text-3)] flex items-center justify-center opacity-70">
+              <div className="w-3 h-3 border border-[var(--text-3)] rounded-[1px]" />
+            </div>
+            Anúncios {someSelected ? `para ${selected.size} campanha${selected.size > 1 ? 's' : ''}` : ''}
           </button>
-          <button className={btnBase} style={btnStyle}>
-            <BarChart3 className="w-3.5 h-3.5" /> Teste A/B
-          </button>
-          <button className={btnBase} style={btnStyle}>
-            <MoreHorizontal className="w-3.5 h-3.5" /> Mais
-          </button>
-          {someSelected && (
-            <span className="text-[11px] font-semibold px-2 py-1 rounded-md"
-              style={{ background: "var(--surface-2)", color: "var(--text-2)" }}>
-              {selected.size} selecionado{selected.size > 1 ? "s" : ""}
-            </span>
-          )}
         </div>
+
+        {/* Date Picker Mock */}
+        <button className="flex items-center gap-2 px-3 py-1.5 rounded-md text-[13px] border hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+          style={{ borderColor: "var(--border-2)", color: "var(--text)", background: "var(--surface)" }}>
+          <Calendar className="w-3.5 h-3.5" />
+          <span>Hoje: {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }).replace(' de ', ' ')}</span>
+          <ChevronDown className="w-3.5 h-3.5 opacity-50" />
+        </button>
+      </div>
+
+      {/* ── Action toolbar (FB-style) ── */}
+      <div className="sticky top-[105px] z-20 flex flex-wrap items-center justify-between gap-2 px-4 lg:px-6 py-2 border-b"
+        style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button className="flex items-center gap-1.5 px-4 py-1.5 rounded-md text-[13px] font-semibold bg-[#0064e0] text-white hover:bg-[#0054bd] transition-colors">
+            <Plus className="w-4 h-4" /> Criar
+          </button>
+          
+          <div className="flex items-center bg-[var(--surface-2)] rounded-md border" style={{ borderColor: "var(--border-2)" }}>
+            <button className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors border-r" style={{ borderColor: "var(--border-2)", color: "var(--text)" }}>
+              <Copy className="w-3.5 h-3.5" /> Duplicar
+            </button>
+            <button className="px-2 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors" style={{ color: "var(--text)" }}>
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="flex items-center bg-[var(--surface-2)] rounded-md border" style={{ borderColor: "var(--border-2)" }}>
+            <button className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium hover:bg-black/5 dark:hover:bg-white/5 transition-colors border-r" style={{ borderColor: "var(--border-2)", color: "var(--text)" }}
+              onClick={() => { const c = campaigns.find(x => selected.has(x.id)); if (c) startEdit(c); }}>
+              <Edit2 className="w-3.5 h-3.5" /> Editar
+            </button>
+            <button className="px-2 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors" style={{ color: "var(--text)" }}>
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <button className={btnBase} style={btnStyle} disabled={!someSelected}>
+            <Trash2 className="w-3.5 h-3.5 opacity-70" />
+          </button>
+
+          <button className={btnBase} style={btnStyle}>
+            <FlaskConical className="w-3.5 h-3.5" /> Teste A/B
+          </button>
+
+          <button className={btnBase} style={btnStyle}>
+            Mais <ChevronDown className="w-3.5 h-3.5 opacity-50" />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button className={btnBase} style={btnStyle}>
+            <Columns className="w-3.5 h-3.5" /> Colunas: Desempenho <ChevronDown className="w-3.5 h-3.5 opacity-50" />
+          </button>
+          <button className={btnBase} style={btnStyle}>
+            <Settings className="w-3.5 h-3.5" /> Detalhamento <ChevronDown className="w-3.5 h-3.5 opacity-50" />
+          </button>
+          <button className={btnBase} style={btnStyle}>
+            <Download className="w-3.5 h-3.5" />
+          </button>
+          <button className={btnBase} style={btnStyle}>
+            <Calendar className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="px-4 lg:px-6 py-2 border-b flex items-center gap-3" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+        <button className="flex items-center gap-1.5 text-[13px] font-medium" style={{ color: "var(--text)" }}>
+          <Filter className="w-3.5 h-3.5" /> Filtros:
+        </button>
+        
         <div className="flex items-center gap-2">
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-            className="text-[12px] rounded-md px-2 py-1.5 border focus:outline-none focus:border-[#1877f2] transition-colors"
+            className="text-[13px] rounded-full px-3 py-1 border hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer appearance-none"
             style={{ background: "var(--surface-2)", borderColor: "var(--border-2)", color: "var(--text)" }}>
             <option value="ALL">Todos os anúncios</option>
             <option value="ACTIVE">Anúncios ativos</option>
             <option value="PAUSED">Pausados</option>
             <option value="ARCHIVED">Arquivados</option>
           </select>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: "var(--text-3)" }} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar..."
-              className="pl-8 pr-3 py-1.5 text-[12px] rounded-md border focus:outline-none focus:border-[#1877f2] w-44 transition-colors"
+          <div className="relative group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: "var(--text-3)" }} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pesquisar e filtrar"
+              className="pl-8 pr-3 py-1 text-[13px] rounded-full border focus:outline-none focus:border-[#1877f2] w-64 transition-all"
               style={{ background: "var(--surface-2)", borderColor: "var(--border-2)", color: "var(--text)" }} />
           </div>
-          <button className={btnBase} style={btnStyle}>
-            <Filter className="w-3.5 h-3.5" /> Filtros
-          </button>
         </div>
       </div>
 
       {/* Error */}
       {apiError && (
-        <div className="mx-6 lg:mx-8 mt-3 p-3 rounded-lg text-[12px] border"
+        <div className="mx-6 lg:mx-8 mt-3 p-3 rounded-lg text-[13px] border flex items-center gap-2"
           style={{ background: "rgba(239,68,68,0.08)", borderColor: "rgba(239,68,68,0.2)", color: "#ef4444" }}>
-          {apiError}
+          <span className="font-semibold">Erro:</span> {apiError}
         </div>
       )}
 
       {/* Loading */}
       {isLoading && campaigns.length === 0 && (
         <div className="flex items-center justify-center py-20">
-          <RefreshCw className="w-6 h-6 text-[#1877f2] animate-spin" />
+          <RefreshCw className="w-8 h-8 text-[#1877f2] animate-spin" />
         </div>
       )}
 
       {/* Empty */}
       {!isLoading && campaigns.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <p className="text-sm" style={{ color: "var(--text-2)" }}>Nenhuma campanha encontrada</p>
+          <p className="text-[15px] font-medium" style={{ color: "var(--text-2)" }}>Nenhuma campanha encontrada</p>
         </div>
       )}
 
       {/* ── Table ── */}
       {campaigns.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[13px]" style={{ minWidth: 1000 }}>
+          <table className="w-full border-collapse text-[13px]" style={{ minWidth: 1200 }}>
             <thead>
               <tr>
-                <th className="w-10 px-3 py-2.5 border-b" style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}>
-                  <input type="checkbox" checked={allSelected}
-                    onChange={() => setSelected(allSelected ? new Set() : new Set(campaigns.map(c => c.id)))}
-                    className="w-3.5 h-3.5 rounded cursor-pointer accent-[#1877f2]" />
+                <th className="w-10 px-3 py-2 border-b border-r" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+                  <div className="flex items-center justify-center w-full h-full">
+                    <input type="checkbox" checked={allSelected}
+                      onChange={() => setSelected(allSelected ? new Set() : new Set(campaigns.map(c => c.id)))}
+                      className="w-4 h-4 rounded-[3px] border-[var(--border-2)] cursor-pointer accent-[#1877f2]" />
+                  </div>
                 </th>
-                <Th>Campanha</Th>
+                <Th width="280px">campanha</Th>
                 <Th>Veiculação</Th>
+                <Th>Ações</Th>
                 <Th right>Resultados</Th>
-                <Th right>Custo/resultado</Th>
+                <Th right>Custo por resultado</Th>
                 <Th right>Orçamento</Th>
                 <Th right>Valor usado</Th>
                 <Th right>Impressões</Th>
-                <Th right>Cliques</Th>
-                <th className="w-12 px-3 py-2.5 border-b" style={{ borderColor: "var(--border)", background: "var(--surface-2)" }} />
+                <Th right>Alcance</Th>
+                <th className="w-12 px-3 py-2 border-b" style={{ borderColor: "var(--border)", background: "var(--surface)" }} />
               </tr>
             </thead>
             <tbody>
@@ -258,113 +374,127 @@ export default function CampaignsPage() {
                 const isExpanded = expanded.has(campaign.id);
                 const isSelected = selected.has(campaign.id);
                 const adsets = getAdsets(campaign.id);
-                const m = campaignMetrics[campaign.id] || { spend: 0, impressions: 0, clicks: 0, convs: 0 };
+                const m = campaignMetrics[campaign.id] || { spend: 0, impressions: 0, clicks: 0, convs: 0, reach: 0 };
                 const cpl = m.convs > 0 ? m.spend / m.convs : 0;
                 const isActive = campaign.effective_status === "ACTIVE";
-                const rowBg = isSelected ? "rgba(24,119,242,0.06)" : isExpanded ? "var(--surface-2)" : "var(--surface)";
+                const rowBg = isSelected ? "rgba(24,119,242,0.08)" : "var(--surface)";
+                const hoverBg = isSelected ? "rgba(24,119,242,0.12)" : "var(--surface-2)";
+                const bDisplay = budgetDisplay(campaign);
 
                 return [
                   <tr key={campaign.id} className="group border-b transition-colors"
                     style={{ borderColor: "var(--border)", background: rowBg }}
-                    onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = "var(--surface-2)"; }}
-                    onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = isExpanded ? "var(--surface-2)" : "var(--surface)"; }}>
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = hoverBg; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = rowBg; }}>
 
                     {/* Checkbox */}
-                    <td className="px-3 py-2.5 w-10">
-                      <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(campaign.id)}
-                        className="w-3.5 h-3.5 rounded cursor-pointer accent-[#1877f2]" />
+                    <td className="px-3 py-3 w-10 border-r" style={{ borderColor: "var(--border)" }}>
+                      <div className="flex items-center justify-center w-full h-full">
+                        <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(campaign.id)}
+                          className="w-4 h-4 rounded-[3px] border-[var(--border-2)] cursor-pointer accent-[#1877f2]" />
+                      </div>
                     </td>
 
                     {/* Name + expand */}
-                    <td className="px-3 py-2.5 min-w-[220px]">
+                    <td className="px-3 py-3 border-r" style={{ borderColor: "var(--border)" }}>
                       <div className="flex items-start gap-2">
-                        <button onClick={() => toggle(campaign.id)}
-                          className="mt-0.5 flex-shrink-0 transition-colors" style={{ color: "var(--text-3)" }}>
-                          {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                        </button>
                         <StatusToggle active={isActive}
                           onChange={() => handleToggleStatus("campaign", campaign.id, campaign.effective_status)} />
-                        <div className="min-w-0">
+                        
+                        <div className="min-w-0 flex-1">
                           {editingId === campaign.id ? (
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <input value={editName} onChange={e => setEditName(e.target.value)}
-                                className="border rounded px-2 py-0.5 text-[12px] focus:outline-none focus:border-[#1877f2] w-40"
+                                className="border rounded px-2 py-0.5 text-[13px] focus:outline-none focus:border-[#1877f2] w-40"
                                 style={{ background: "var(--surface-2)", borderColor: "var(--border-2)", color: "var(--text)" }}
                                 onClick={e => e.stopPropagation()} />
                               <button onClick={e => { e.stopPropagation(); saveEdit(campaign.id); }} disabled={saving}
-                                className="text-[#22c55e]"><Save className="w-3.5 h-3.5" /></button>
+                                className="text-[#22c55e] hover:bg-[#22c55e]/10 p-1 rounded transition-colors"><Save className="w-4 h-4" /></button>
                               <button onClick={e => { e.stopPropagation(); setEditingId(null); }}
-                                className="text-[#ef4444]"><X className="w-3.5 h-3.5" /></button>
+                                className="text-[#ef4444] hover:bg-[#ef4444]/10 p-1 rounded transition-colors"><X className="w-4 h-4" /></button>
                             </div>
                           ) : (
-                            <>
-                              <div className="font-medium text-[13px] leading-tight truncate max-w-[260px]" style={{ color: "var(--text)" }}>
+                            <div className="group/name flex items-center gap-2">
+                              <div className="font-medium text-[13px] text-[#1877f2] hover:underline cursor-pointer leading-tight truncate max-w-[220px]">
                                 {campaign.name}
                               </div>
-                              <div className="text-[11px] mt-0.5" style={{ color: "var(--text-2)" }}>
-                                {OBJECTIVE_LABELS[campaign.objective as string] || campaign.objective || "—"}
-                              </div>
-                            </>
+                              <button onClick={e => { e.stopPropagation(); startEdit(campaign); }}
+                                className="opacity-0 group-hover/name:opacity-100 transition-opacity p-1 rounded hover:bg-black/5 dark:hover:bg-white/5"
+                                style={{ color: "var(--text-3)" }}>
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
                     </td>
 
-                    {/* Status */}
-                    <td className="px-3 py-2.5"><StatusDot status={campaign.effective_status} /></td>
-
-                    {/* Results */}
-                    <td className="px-3 py-2.5 text-right">
-                      <div className="font-semibold" style={{ color: "var(--text)" }}>{m.convs > 0 ? m.convs.toLocaleString("pt-BR") : "—"}</div>
-                      <div className="text-[10px]" style={{ color: "var(--text-2)" }}>Conversas por mens.</div>
+                    {/* Veiculação */}
+                    <td className="px-3 py-3 border-r" style={{ borderColor: "var(--border)" }}>
+                      <StatusDot status={campaign.effective_status} />
                     </td>
 
-                    {/* CPL */}
-                    <td className="px-3 py-2.5 text-right">
-                      <div className="font-semibold" style={{ color: "var(--text)" }}>{cpl > 0 ? formatCurrency(cpl) : "—"}</div>
-                      <div className="text-[10px]" style={{ color: "var(--text-2)" }}>Por conversa</div>
+                    {/* Ações (Mock) */}
+                    <td className="px-3 py-3 border-r" style={{ borderColor: "var(--border)" }}>
+                      <div className="flex items-center gap-1.5 text-[12px] text-[#1877f2] cursor-pointer hover:underline font-medium">
+                        <Check className="w-3.5 h-3.5 p-[1px] bg-[#1877f2]/10 rounded-full" />
+                        2 recomendações
+                      </div>
                     </td>
 
-                    {/* Budget */}
-                    <td className="px-3 py-2.5 text-right">
+                    {/* Resultados */}
+                    <td className="px-3 py-3 text-right border-r" style={{ borderColor: "var(--border)" }}>
+                      <div className="font-semibold text-[14px]" style={{ color: "var(--text)" }}>{m.convs > 0 ? m.convs.toLocaleString("pt-BR") : "—"}</div>
+                      {m.convs > 0 && <div className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>Conversas por mensa...</div>}
+                    </td>
+
+                    {/* Custo por resultado */}
+                    <td className="px-3 py-3 text-right border-r" style={{ borderColor: "var(--border)" }}>
+                      <div className="font-semibold text-[14px]" style={{ color: "var(--text)" }}>{cpl > 0 ? `R$ ${cpl.toLocaleString("pt-BR", {minimumFractionDigits: 2})}` : "—"}</div>
+                      {cpl > 0 && <div className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>Por conversa por me...</div>}
+                    </td>
+
+                    {/* Orçamento */}
+                    <td className="px-3 py-3 text-right border-r" style={{ borderColor: "var(--border)" }}>
                       {editingId === campaign.id ? (
                         <input value={editBudget} onChange={e => setEditBudget(e.target.value)}
                           placeholder="R$/dia"
-                          className="border rounded px-2 py-0.5 text-[12px] text-right focus:outline-none focus:border-[#1877f2] w-24"
+                          className="border rounded px-2 py-0.5 text-[13px] text-right focus:outline-none focus:border-[#1877f2] w-24"
                           style={{ background: "var(--surface-2)", borderColor: "var(--border-2)", color: "var(--text)" }}
                           onClick={e => e.stopPropagation()} />
                       ) : (
-                        <span style={{ color: "var(--text)" }}>{budgetDisplay(campaign)}</span>
+                        <>
+                          <div className={cn("text-[13px]", !bDisplay.type && "text-[var(--text-2)]")} style={{ color: bDisplay.type ? "var(--text)" : undefined }}>
+                            {bDisplay.type ? <><Edit2 className="w-3 h-3 inline mr-1 opacity-0 group-hover:opacity-50 text-[var(--text-3)] cursor-pointer" />{bDisplay.amount}</> : bDisplay.amount}
+                          </div>
+                          {bDisplay.type && <div className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>{bDisplay.type}</div>}
+                        </>
                       )}
                     </td>
 
-                    {/* Spend */}
-                    <td className="px-3 py-2.5 text-right font-semibold" style={{ color: "var(--text)" }}>
-                      {formatCurrency(m.spend)}
+                    {/* Valor usado */}
+                    <td className="px-3 py-3 text-right border-r" style={{ borderColor: "var(--border)" }}>
+                      <div className="text-[13px]" style={{ color: "var(--text)" }}>
+                        {m.spend > 0 ? `R$ ${m.spend.toLocaleString("pt-BR", {minimumFractionDigits: 2})}` : "—"}
+                      </div>
                     </td>
 
-                    {/* Impressions */}
-                    <td className="px-3 py-2.5 text-right" style={{ color: "var(--text)" }}>
-                      {m.impressions > 0 ? formatNumber(m.impressions) : "—"}
+                    {/* Impressões */}
+                    <td className="px-3 py-3 text-right border-r" style={{ borderColor: "var(--border)" }}>
+                      <div className="text-[13px]" style={{ color: "var(--text)" }}>
+                        {m.impressions > 0 ? m.impressions.toLocaleString("pt-BR") : "—"}
+                      </div>
                     </td>
 
-                    {/* Clicks */}
-                    <td className="px-3 py-2.5 text-right" style={{ color: "var(--text)" }}>
-                      {m.clicks > 0 ? formatNumber(m.clicks) : "—"}
+                    {/* Alcance */}
+                    <td className="px-3 py-3 text-right border-r" style={{ borderColor: "var(--border)" }}>
+                      <div className="text-[13px]" style={{ color: "var(--text)" }}>
+                        {m.reach > 0 ? m.reach.toLocaleString("pt-BR") : "—"}
+                      </div>
                     </td>
 
-                    {/* Edit action */}
-                    <td className="px-3 py-2.5 w-12">
-                      {editingId !== campaign.id && (
-                        <button onClick={e => { e.stopPropagation(); startEdit(campaign); }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded"
-                          style={{ color: "var(--text-2)" }}
-                          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--surface-3)"}
-                          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </td>
+                    {/* Empty Space */}
+                    <td className="px-3 py-3 w-12" />
                   </tr>,
 
                   // ── Adsets (expanded) ──
@@ -372,33 +502,35 @@ export default function CampaignsPage() {
                     const ads = getAds(adset.id);
                     const isAdsetExpanded = expanded.has(`adset_${adset.id}`);
                     const isAdsetActive = adset.effective_status === "ACTIVE";
+                    const bDisplayAdset = budgetDisplay(adset);
                     return [
                       <tr key={`adset_${adset.id}`} className="group border-b transition-colors"
                         style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
                         onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--surface-3)"}
                         onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "var(--surface-2)"}>
-                        <td className="px-3 py-2 w-10" />
-                        <td className="px-3 py-2" colSpan={1}>
+                        <td className="px-3 py-2 w-10 border-r" style={{ borderColor: "var(--border)" }} />
+                        <td className="px-3 py-2 border-r" style={{ borderColor: "var(--border)" }}>
                           <div className="flex items-center gap-2 pl-8">
-                            <button onClick={() => toggle(`adset_${adset.id}`)}
-                              className="flex-shrink-0 transition-colors" style={{ color: "var(--text-3)" }}>
-                              {isAdsetExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                            </button>
                             <StatusToggle size="sm" active={isAdsetActive}
                               onChange={() => handleToggleStatus("adset", adset.id, adset.effective_status)} />
                             <div>
-                              <div className="text-[12px] font-medium truncate max-w-[220px]" style={{ color: "var(--text)" }}>{adset.name}</div>
-                              <div className="text-[10px]" style={{ color: "var(--text-2)" }}>{ads.length} anúncios • {budgetDisplay(adset)}</div>
+                              <div className="text-[13px] text-[#1877f2] hover:underline cursor-pointer truncate max-w-[200px]">
+                                {adset.name}
+                              </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-3 py-2"><StatusDot status={adset.effective_status} /></td>
-                        <td className="px-3 py-2 text-right text-[12px]" style={{ color: "var(--text-2)" }}>—</td>
-                        <td className="px-3 py-2 text-right text-[12px]" style={{ color: "var(--text-2)" }}>—</td>
-                        <td className="px-3 py-2 text-right text-[12px]" style={{ color: "var(--text)" }}>{budgetDisplay(adset)}</td>
-                        <td className="px-3 py-2 text-right text-[12px]" style={{ color: "var(--text-2)" }}>—</td>
-                        <td className="px-3 py-2 text-right text-[12px]" style={{ color: "var(--text-2)" }}>—</td>
-                        <td className="px-3 py-2 text-right text-[12px]" style={{ color: "var(--text-2)" }}>—</td>
+                        <td className="px-3 py-2 border-r" style={{ borderColor: "var(--border)" }}><StatusDot status={adset.effective_status} /></td>
+                        <td className="px-3 py-2 border-r" style={{ borderColor: "var(--border)" }} />
+                        <td className="px-3 py-2 text-right text-[13px] border-r" style={{ color: "var(--text-2)", borderColor: "var(--border)" }}>—</td>
+                        <td className="px-3 py-2 text-right text-[13px] border-r" style={{ color: "var(--text-2)", borderColor: "var(--border)" }}>—</td>
+                        <td className="px-3 py-2 text-right border-r" style={{ borderColor: "var(--border)" }}>
+                          <div className="text-[13px]" style={{ color: "var(--text)" }}>{bDisplayAdset.amount}</div>
+                          {bDisplayAdset.type && <div className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>{bDisplayAdset.type}</div>}
+                        </td>
+                        <td className="px-3 py-2 text-right text-[13px] border-r" style={{ color: "var(--text-2)", borderColor: "var(--border)" }}>—</td>
+                        <td className="px-3 py-2 text-right text-[13px] border-r" style={{ color: "var(--text-2)", borderColor: "var(--border)" }}>—</td>
+                        <td className="px-3 py-2 text-right text-[13px] border-r" style={{ color: "var(--text-2)", borderColor: "var(--border)" }}>—</td>
                         <td className="px-3 py-2 w-12" />
                       </tr>,
 
@@ -412,33 +544,36 @@ export default function CampaignsPage() {
                             style={{ borderColor: "var(--border)", background: "var(--surface-2)" }}
                             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "var(--surface-3)"}
                             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "var(--surface-2)"}>
-                            <td className="px-3 py-2 w-10" />
-                            <td className="px-3 py-2">
+                            <td className="px-3 py-2 w-10 border-r" style={{ borderColor: "var(--border)" }} />
+                            <td className="px-3 py-2 border-r" style={{ borderColor: "var(--border)" }}>
                               <div className="flex items-center gap-2 pl-16">
                                 <StatusToggle size="sm" active={isAdActive}
                                   onChange={() => handleToggleStatus("ad", ad.id, ad.effective_status)} />
-                                <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0 flex items-center justify-center"
-                                  style={{ background: "var(--surface-3)" }}>
+                                <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0 flex items-center justify-center border"
+                                  style={{ background: "var(--surface-3)", borderColor: "var(--border)" }}>
                                   {thumb
                                     ? <img src={thumb} alt="" className="w-full h-full object-cover" />
                                     : <ImageIcon className="w-3.5 h-3.5" style={{ color: "var(--text-3)" }} />}
                                 </div>
-                                <span className="text-[12px] truncate max-w-[180px]" style={{ color: "var(--text)" }}>{ad.name}</span>
+                                <span className="text-[13px] text-[#1877f2] hover:underline cursor-pointer truncate max-w-[160px]">
+                                  {ad.name}
+                                </span>
                               </div>
                             </td>
-                            <td className="px-3 py-2"><StatusDot status={ad.effective_status} /></td>
-                            <td className="px-3 py-2 text-right text-[12px] font-semibold" style={{ color: "var(--text)" }}>
+                            <td className="px-3 py-2 border-r" style={{ borderColor: "var(--border)" }}><StatusDot status={ad.effective_status} /></td>
+                            <td className="px-3 py-2 border-r" style={{ borderColor: "var(--border)" }} />
+                            <td className="px-3 py-2 text-right text-[13px] font-semibold border-r" style={{ color: "var(--text)", borderColor: "var(--border)" }}>
                               {am.convs > 0 ? am.convs.toLocaleString("pt-BR") : "—"}
                             </td>
-                            <td className="px-3 py-2 text-right text-[12px]" style={{ color: "var(--text)" }}>
-                              {am.convs > 0 ? formatCurrency(am.spend / am.convs) : "—"}
+                            <td className="px-3 py-2 text-right text-[13px] border-r" style={{ color: "var(--text)", borderColor: "var(--border)" }}>
+                              {am.convs > 0 ? `R$ ${(am.spend / am.convs).toLocaleString("pt-BR", {minimumFractionDigits: 2})}` : "—"}
                             </td>
-                            <td className="px-3 py-2 text-right text-[12px]" style={{ color: "var(--text-2)" }}>—</td>
-                            <td className="px-3 py-2 text-right text-[12px] font-semibold" style={{ color: "var(--text)" }}>
-                              {am.spend > 0 ? formatCurrency(am.spend) : "—"}
+                            <td className="px-3 py-2 text-right text-[13px] border-r" style={{ color: "var(--text-2)", borderColor: "var(--border)" }}>—</td>
+                            <td className="px-3 py-2 text-right text-[13px] border-r" style={{ color: "var(--text)", borderColor: "var(--border)" }}>
+                              {am.spend > 0 ? `R$ ${am.spend.toLocaleString("pt-BR", {minimumFractionDigits: 2})}` : "—"}
                             </td>
-                            <td className="px-3 py-2 text-right text-[12px]" style={{ color: "var(--text-2)" }}>—</td>
-                            <td className="px-3 py-2 text-right text-[12px]" style={{ color: "var(--text-2)" }}>—</td>
+                            <td className="px-3 py-2 text-right text-[13px] border-r" style={{ color: "var(--text-2)", borderColor: "var(--border)" }}>—</td>
+                            <td className="px-3 py-2 text-right text-[13px] border-r" style={{ color: "var(--text-2)", borderColor: "var(--border)" }}>—</td>
                             <td className="px-3 py-2 w-12" />
                           </tr>
                         );
@@ -451,32 +586,39 @@ export default function CampaignsPage() {
 
             {/* ── Totals footer ── */}
             <tfoot>
-              <tr style={{ background: "var(--surface-2)", borderTop: `2px solid var(--border-2)` }}>
-                <td colSpan={3} className="px-3 py-2.5 text-[11px] font-semibold" style={{ color: "var(--text-2)" }}>
-                  Resultados de {campaigns.length} campanhas
-                </td>
-                <td className="px-3 py-2.5 text-right">
-                  <div className="text-[12px] font-bold" style={{ color: "var(--text)" }}>{totals.convs > 0 ? totals.convs.toLocaleString("pt-BR") : "—"}</div>
-                  <div className="text-[10px]" style={{ color: "var(--text-2)" }}>Múltiplas conversões</div>
-                </td>
-                <td className="px-3 py-2.5 text-right">
-                  <div className="text-[12px] font-bold" style={{ color: "var(--text)" }}>
-                    {totals.convs > 0 ? formatCurrency(totals.spend / totals.convs) : "—"}
+              <tr style={{ background: "var(--surface)", borderTop: `1px solid var(--border)` }}>
+                <td className="px-3 py-3 border-r" style={{ borderColor: "var(--border)" }} />
+                <td colSpan={3} className="px-3 py-3 border-r" style={{ borderColor: "var(--border)" }}>
+                  <div className="flex items-center gap-1.5 font-semibold text-[13px]" style={{ color: "var(--text)" }}>
+                    Resultados de {campaigns.length} campanhas <Settings className="w-3.5 h-3.5 opacity-50 cursor-pointer" />
                   </div>
-                  <div className="text-[10px]" style={{ color: "var(--text-2)" }}>Múltiplas conversões</div>
                 </td>
-                <td className="px-3 py-2.5 text-right text-[12px]" style={{ color: "var(--text-2)" }}>—</td>
-                <td className="px-3 py-2.5 text-right">
-                  <div className="text-[12px] font-bold" style={{ color: "var(--text)" }}>{formatCurrency(totals.spend)}</div>
-                  <div className="text-[10px]" style={{ color: "var(--text-2)" }}>Total usado</div>
+                <td className="px-3 py-3 text-right border-r" style={{ borderColor: "var(--border)" }}>
+                  <div className="text-[14px] font-semibold" style={{ color: "var(--text)" }}>{totals.convs > 0 ? totals.convs.toLocaleString("pt-BR") : "—"}</div>
+                  {totals.convs > 0 && <div className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>Múltiplas conversões</div>}
                 </td>
-                <td className="px-3 py-2.5 text-right">
-                  <div className="text-[12px] font-bold" style={{ color: "var(--text)" }}>{totals.impressions > 0 ? formatNumber(totals.impressions) : "—"}</div>
-                  <div className="text-[10px]" style={{ color: "var(--text-2)" }}>Total</div>
+                <td className="px-3 py-3 text-right border-r" style={{ borderColor: "var(--border)" }}>
+                  <div className="text-[14px] font-semibold" style={{ color: "var(--text)" }}>
+                    {totals.convs > 0 ? `R$ ${(totals.spend / totals.convs).toLocaleString("pt-BR", {minimumFractionDigits: 2})}` : "—"}
+                  </div>
+                  {totals.convs > 0 && <div className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>Múltiplas conversões</div>}
                 </td>
-                <td className="px-3 py-2.5 text-right">
-                  <div className="text-[12px] font-bold" style={{ color: "var(--text)" }}>{totals.clicks > 0 ? formatNumber(totals.clicks) : "—"}</div>
-                  <div className="text-[10px]" style={{ color: "var(--text-2)" }}>Total</div>
+                <td className="px-3 py-3 text-right border-r" style={{ borderColor: "var(--border)" }}>
+                  <div className="text-[13px]" style={{ color: "var(--text-2)" }}>—</div>
+                </td>
+                <td className="px-3 py-3 text-right border-r" style={{ borderColor: "var(--border)" }}>
+                  <div className="text-[14px] font-semibold" style={{ color: "var(--text)" }}>
+                    {totals.spend > 0 ? `R$ ${totals.spend.toLocaleString("pt-BR", {minimumFractionDigits: 2})}` : "—"}
+                  </div>
+                  {totals.spend > 0 && <div className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>Total usado</div>}
+                </td>
+                <td className="px-3 py-3 text-right border-r" style={{ borderColor: "var(--border)" }}>
+                  <div className="text-[14px] font-semibold" style={{ color: "var(--text)" }}>{totals.impressions > 0 ? totals.impressions.toLocaleString("pt-BR") : "—"}</div>
+                  {totals.impressions > 0 && <div className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>Total</div>}
+                </td>
+                <td className="px-3 py-3 text-right border-r" style={{ borderColor: "var(--border)" }}>
+                  <div className="text-[14px] font-semibold" style={{ color: "var(--text)" }}>{totals.reach > 0 ? totals.reach.toLocaleString("pt-BR") : "—"}</div>
+                  {totals.reach > 0 && <div className="text-[11px] mt-0.5" style={{ color: "var(--text-3)" }}>Total</div>}
                 </td>
                 <td />
               </tr>
