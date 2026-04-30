@@ -4,45 +4,28 @@ import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 
-const inter = Inter({ 
-  subsets: ["latin"], 
-  variable: "--font-inter" 
-});
-
-const jetbrainsMono = JetBrains_Mono({ 
-  subsets: ["latin"], 
-  variable: "--font-jetbrains-mono" 
-});
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono" });
 
 export const metadata: Metadata = {
-  title: "Trackfy — Inteligência de ROI",
-  description: "Tráfego Pago sob medida para a Infinity Sul.",
+  title: "Trackfy — Growth OS",
+  description: "Marketing Command Center. Track campaigns, creatives and profit in one intelligent platform.",
 };
 
 import { CampaignDrawer } from "@/components/campaigns/CampaignDrawer";
 import { StoreHydration } from "@/components/StoreHydration";
 import { ToastProvider } from "@/components/ui/Toast";
 import { ChatAssistant } from "@/components/chat/ChatAssistant";
+import { AppShell } from "@/components/layout/AppShell";
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  // Landing page (/) gets no sidebar/topbar
   return (
     <html lang="pt-BR" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body className="antialiased font-sans" suppressHydrationWarning>
+      <body className="antialiased" suppressHydrationWarning>
         <ToastProvider>
           <StoreHydration />
-          <div className="bg-mesh" />
-          <Sidebar />
-          <Topbar />
-          <CampaignDrawer />
-          <main className="ml-64 pt-14 min-h-screen" suppressHydrationWarning>
-            <div className="p-4 sm:p-6 lg:p-8">
-              {children}
-            </div>
-          </main>
+          <AppShell>{children}</AppShell>
           <ChatAssistant />
         </ToastProvider>
       </body>
