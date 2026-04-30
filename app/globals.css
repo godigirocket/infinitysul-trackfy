@@ -44,11 +44,27 @@
     --accent-glow: rgba(124,58,237,0.15);
   }
 
+  /* Chart theme variables */
+  :root {
+    --chart-line:   #6366f1;
+    --chart-area:   rgba(99,102,241,0.15);
+    --chart-text:   #94a3b8;
+    --chart-grid:   rgba(255,255,255,0.05);
+    --chart-tooltip-bg: #111827;
+    --chart-tooltip-text: #ffffff;
+  }
+  html.light {
+    --chart-line:   #3b82f6;
+    --chart-area:   rgba(59,130,246,0.1);
+    --chart-text:   #374151;
+    --chart-grid:   #e5e7eb;
+    --chart-tooltip-bg: #ffffff;
+    --chart-tooltip-text: #111827;
+  }
+
   /* Light theme scrollbar */
   html.light ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); }
   html.light ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
-
-  * { box-sizing: border-box; }
 
   html { scroll-behavior: smooth; }
 
