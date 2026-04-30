@@ -317,3 +317,88 @@ export const fetchAccountStructure = async (accountId: string, token: string) =>
     ads: (ads.data || []) as any[],
   };
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WRITE OPERATIONS — update campaign / adset / ad via Meta Graph API
+// All writes go through /api/meta with payload (form-encoded)
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function metaWrite(objectId: string, token: string, fields: Record<string, string>): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch("/api/meta", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: `${BASE_URL}/${objectId}`,
+        payload: { access_token: token, ...fields },
+      }),
+    });
+    const json = await res.json();
+    if (json.error) return { success: false, error: json.error.message };
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e?.message || "Network error" };
+  }
+}
+
+export const updateCampaign = (id: string, token: string, fields: {
+  name?: string;
+  status?: "ACTIVE" | "PAUSED" | "ARCHIVED";
+  daily_budget?: number; // in cents
+}) => {
+  const payload: Record<string, string> = {};
+  if (fields.name) payload.name = fields.name;
+  if (fields.status) payload.status = fields.status;
+  if (fields.daily_budget !== undefined) payload.daily_budget = String(fields.daily_budget);
+  return metaWrite(id, token, payload);
+};
+
+export const updateAdset = (id: string, token: string, fields: {
+  name?: string;
+  status?: "ACTIVE" | "PAUSED" | "ARCHIVED";
+  daily_budget?: number;
+}) => {
+  const payload: Record<string, string> = {};
+  if (fields.name) payload.name = fields.name;
+  if (fields.status) payload.status = fields.status;
+  if (fields.daily_budget !== undefined) payload.daily_budget = String(fields.daily_budget);
+  return metaWrite(id, token, payload);
+};
+
+export const updateAd = (id: string, token: string, fields: {
+  name?: string;
+  status?: "ACTIVE" | "PAUSED" | "ARCHIVED";
+}) => {
+  const payload: Record<string, string> = {};
+  if (fields.name) payload.name = fields.name;
+  if (fields.status) payload.status = fields.status;
+  return metaWrite(id, token, payload);
+};
+
+// Batch status update
+export const batchUpdateStatus = async (
+  ids: string[],
+  token: string,
+  status: "ACTIVE" | "PAUSED" | "ARCHIVED"
+): Promise<{ id: string; success: boolean; error?: string }[]> => {
+  const results = await Promise.allSettled(
+    ids.map(id => metaWrite(id, token, { status }))
+  );
+  return results.map((r, i) => ({
+    id: ids[i],
+    success: r.status === "fulfilled" ? r.value.success : false,
+    error: r.status === "fulfilled" ? r.value.error : (r as PromiseRejectedResult).reason?.message,
+  }));
+};
+
+// Fetch ads with full creative details for the creatives hub
+export const fetchAdsWithCreatives = async (accountId: string, token: string): Promise<any[]> => {
+  const id = normalizeAccountId(accountId);
+  try {
+    const url = `${BASE_URL}/${id}/ads?fields=id,name,effective_status,adset_id,campaign_id,creative{id,name,thumbnail_url,image_url,video_id,object_story_spec,body,title,call_to_action_type}&limit=50&access_token=${token}`;
+    return await paginateAll(url, 10);
+  } catch (e) {
+    console.warn("[MetaAPI] fetchAdsWithCreatives failed:", e);
+    return [];
+  }
+};

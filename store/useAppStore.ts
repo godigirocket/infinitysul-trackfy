@@ -46,6 +46,10 @@ interface AppStore extends AppState {
   setIntelCampaignFilter: (val: string) => void;
   setIntelSignalFilter: (val: string) => void;
   setHierarchy: (hierarchy: AccountHierarchy) => void;
+  // Optimistic hierarchy mutations
+  updateHierarchyCampaign: (id: string, patch: Partial<any>) => void;
+  updateHierarchyAdset: (id: string, patch: Partial<any>) => void;
+  updateHierarchyAd: (id: string, patch: Partial<any>) => void;
   drawerCampaignId: string | null;
   setDrawerCampaignId: (id: string | null) => void;
   apiError: string | null;
@@ -163,6 +167,36 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   setIntelCampaignFilter: (intelCampaignFilter) => set({ intelCampaignFilter }),
   setIntelSignalFilter: (intelSignalFilter) => set({ intelSignalFilter }),
   setHierarchy: (hierarchy) => set({ hierarchy }),
+  updateHierarchyCampaign: (id, patch) =>
+    set((s) => {
+      if (!s.hierarchy) return {};
+      return {
+        hierarchy: {
+          ...s.hierarchy,
+          campaigns: s.hierarchy.campaigns.map(c => c.id === id ? { ...c, ...patch } : c),
+        },
+      };
+    }),
+  updateHierarchyAdset: (id, patch) =>
+    set((s) => {
+      if (!s.hierarchy) return {};
+      return {
+        hierarchy: {
+          ...s.hierarchy,
+          adsets: s.hierarchy.adsets.map(a => a.id === id ? { ...a, ...patch } : a),
+        },
+      };
+    }),
+  updateHierarchyAd: (id, patch) =>
+    set((s) => {
+      if (!s.hierarchy) return {};
+      return {
+        hierarchy: {
+          ...s.hierarchy,
+          ads: s.hierarchy.ads.map(a => a.id === id ? { ...a, ...patch } : a),
+        },
+      };
+    }),
 
   // ── client-side hydration from localStorage ──
   _hydrate: () => {

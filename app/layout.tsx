@@ -21,6 +21,7 @@ export const metadata: Metadata = {
 
 import { CampaignDrawer } from "@/components/campaigns/CampaignDrawer";
 import { StoreHydration } from "@/components/StoreHydration";
+import { ToastProvider } from "@/components/ui/Toast";
 
 export default function RootLayout({
   children,
@@ -30,16 +31,18 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="antialiased font-sans" suppressHydrationWarning>
-        <StoreHydration />
-        <div className="bg-mesh" />
-        <Sidebar />
-        <Topbar />
-        <CampaignDrawer />
-        <main className="ml-64 pt-16 min-h-screen" suppressHydrationWarning>
-          <div className="p-4 sm:p-6 lg:p-8">
-            {children}
-          </div>
-        </main>
+        <ToastProvider>
+          <StoreHydration />
+          <div className="bg-mesh" />
+          <Sidebar />
+          <Topbar />
+          <CampaignDrawer />
+          <main className="ml-64 pt-16 min-h-screen" suppressHydrationWarning>
+            <div className="p-4 sm:p-6 lg:p-8">
+              {children}
+            </div>
+          </main>
+        </ToastProvider>
       </body>
     </html>
   );
