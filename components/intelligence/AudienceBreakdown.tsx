@@ -73,7 +73,7 @@ export function AudienceBreakdown() {
             )}
           </div>
 
-          <div className="h-[300px] w-full">
+          <div className="h-[300px] w-full" style={{ minHeight: 300 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={ageData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
@@ -113,7 +113,7 @@ export function AudienceBreakdown() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-              <div className="h-[240px]">
+              <div className="h-[240px]" style={{ minHeight: 240 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie

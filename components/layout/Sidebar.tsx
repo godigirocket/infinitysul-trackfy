@@ -7,8 +7,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Brain, Megaphone, Image, Link2, Plug,
   ShoppingCart, TrendingUp, BarChart3, Receipt, Wallet,
-  GitBranch, Bell, Settings, LogOut, Zap, Sparkles,
-  ChevronRight, Bot,
+  GitBranch, Bell, Settings, LogOut, Zap,
 } from "lucide-react";
 
 const NAV = [
@@ -105,31 +104,12 @@ export function Sidebar() {
 
       {/* Bottom section */}
       <div className="px-3 pb-4 space-y-2 flex-shrink-0 border-t border-white/[0.05] pt-3">
-        {/* AI Assistant */}
-        <Link href="/intelligence"
-          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-white/40 hover:text-white/80 hover:bg-white/[0.04] transition-all group">
-          <Bot className="w-4 h-4 text-white/30 group-hover:text-accent transition-colors" />
-          AI Assistant
-        </Link>
-
         {/* Settings */}
         <Link href="/settings"
           className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-white/40 hover:text-white/80 hover:bg-white/[0.04] transition-all group">
           <Settings className="w-4 h-4 text-white/30 group-hover:text-white/60 transition-colors" />
           Configurações
         </Link>
-
-        {/* Upgrade card */}
-        <div className="mt-2 p-3 rounded-xl border border-accent/20 bg-gradient-to-br from-accent/10 to-transparent">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-3.5 h-3.5 text-accent" />
-            <span className="text-xs font-semibold text-white">Pro Plan</span>
-          </div>
-          <p className="text-[11px] text-white/40 mb-2.5 leading-relaxed">Desbloqueie Google Ads, automações e relatórios avançados.</p>
-          <button className="w-full py-1.5 bg-accent hover:bg-accent-2 text-white text-xs font-semibold rounded-lg transition-all">
-            Fazer Upgrade
-          </button>
-        </div>
 
         {/* Sync status */}
         <div className="flex items-center gap-2 px-2.5 py-1.5">

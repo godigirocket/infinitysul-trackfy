@@ -128,9 +128,9 @@ function generateSignal(
   spend: number,
   funnelDrop: number
 ): { signal: CampaignIntel["signal"]; reason: string } {
-  // Bad: No leads despite meaningful spend
+  // Bad: No conversions despite meaningful spend
   if (spend > 50 && leads === 0) {
-    return { signal: "optimize", reason: "Gasto contínuo sem geração de leads" };
+    return { signal: "optimize", reason: "Gasto contínuo sem conversões" };
   }
   // Critical: High CPL + High Frequency = Audience fatigue
   if (cpl > 0 && avgCpl > 0 && cpl > avgCpl * 1.4 && frequency > 3.5) {
@@ -162,7 +162,15 @@ export function runIntelligence(data: MetaInsight[]): CampaignIntel[] {
   const aggregated = aggregateByCampaign(data);
   const campaigns = Array.from(aggregated.values());
 
-  // Calculate account-wide average CPL
+  // Use conversations as primary metric if leads = 0 (messaging campaigns)
+  // This handles OUTCOME_MESSAGING / MESSAGES objective accounts
+  campaigns.forEach(c => {
+    if (c.leads === 0 && c.conversations > 0) {
+      c.leads = c.conversations; // treat conversations as the conversion metric
+    }
+  });
+
+  // Calculate account-wide average CPL (cost per conversion)
   const totalLeads = campaigns.reduce((s, c) => s + c.leads, 0);
   const totalSpend = campaigns.reduce((s, c) => s + c.spend, 0);
   const avgCpl = totalLeads > 0 ? totalSpend / totalLeads : 0;
