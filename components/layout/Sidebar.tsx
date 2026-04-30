@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAppStore } from "@/store/useAppStore";
 import {
   LayoutDashboard, Brain, Megaphone, Zap, Settings, LogOut,
   Link2, Plug, ShoppingCart, TrendingUp, BarChart3,
   Receipt, Wallet, GitBranch, Bell,
 } from "lucide-react";
-import { cn } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 import { SYSTEM_MODULES, GROUP_LABELS, SystemModule } from "@/lib/modules";
 
 const ICON_MAP: Record<string, any> = {
@@ -20,6 +21,7 @@ const GROUP_ORDER = ["core", "tracking", "financial", "config", "advanced"];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { lastSync, isLoading, token } = useAppStore();
 
   const grouped = GROUP_ORDER.reduce((acc, group) => {
     const items = SYSTEM_MODULES.filter(m => m.group === group && m.enabled);
@@ -54,8 +56,9 @@ export function Sidebar() {
             <div className="space-y-0.5">
               {items.map(item => {
                 const Icon = ICON_MAP[item.icon] || Settings;
-                const isActive = pathname === item.href ||
-                  (item.href !== "/dashboard" && item.href.length > 1 && pathname.startsWith(item.href));
+          const isActive = pathname === item.href ||
+                  (item.href.length > 1 && pathname === item.href) ||
+                  (item.href !== "/dashboard" && item.href !== "/" && pathname.startsWith(item.href + "/"));
                 return (
                   <Link
                     key={item.id}
@@ -90,10 +93,12 @@ export function Sidebar() {
       <div className="px-4 pb-4 pt-2 border-t border-white/5 space-y-3">
         <div className="px-3 py-3 bg-white/[0.02] rounded-2xl border border-white/5">
           <p className="text-[9px] font-bold text-muted uppercase tracking-wider mb-1 flex items-center gap-2">
-            <div className="w-1 h-1 rounded-full bg-success animate-pulse" />
-            Meta Ads Sync
+            <div className={cn("w-1 h-1 rounded-full", isLoading ? "bg-warning animate-pulse" : token ? "bg-success animate-pulse" : "bg-muted")} />
+            Meta Ads
           </p>
-          <p className="text-[10px] text-white/50">Atualizado 2m atrás</p>
+          <p className="text-[10px] text-white/50">
+            {isLoading ? "Sincronizando..." : lastSync && lastSync !== "cache" ? `Sync ${lastSync}` : lastSync === "cache" ? "Cache" : "Não sincronizado"}
+          </p>
         </div>
         <button
           onClick={() => {
