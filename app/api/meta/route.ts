@@ -1,50 +1,42 @@
-import { NextRequest, NextResponse } from "next/server";
-
 export const runtime = "edge";
 
 const META_HOSTS = ["graph.facebook.com", "graph-video.facebook.com"];
 
-function validateUrl(url: unknown): { ok: true; parsed: URL } | { ok: false; error: string } {
-  if (!url || typeof url !== "string") return { ok: false, error: "Missing url" };
-  try {
-    const parsed = new URL(url);
-    if (!META_HOSTS.some(h => parsed.hostname === h)) return { ok: false, error: "URL not allowed" };
-    return { ok: true, parsed };
-  } catch {
-    return { ok: false, error: "Invalid URL" };
-  }
-}
-
-/**
- * GET proxy — read operations (insights, hierarchy)
- * Body: { url: string }
- */
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   let body: any;
   try { body = await req.json(); } catch {
-    return NextResponse.json({ error: { message: "Invalid JSON" } }, { status: 400 });
+    return new Response(JSON.stringify({ error: { message: "Invalid JSON" } }), { status: 400 });
   }
 
-  const check = validateUrl(body?.url);
-  if (!check.ok) return NextResponse.json({ error: { message: check.error } }, { status: 400 });
+  const { url, method = "GET", payload } = body ?? {};
 
-  // If body.payload is present → write operation (POST to Meta)
-  const isWrite = body?.payload !== undefined;
+  if (!url || typeof url !== "string") {
+    return new Response(JSON.stringify({ error: { message: "Missing url" } }), { status: 400 });
+  }
+
+  let parsed: URL;
+  try { parsed = new URL(url); } catch {
+    return new Response(JSON.stringify({ error: { message: "Invalid URL" } }), { status: 400 });
+  }
+
+  if (!META_HOSTS.some(h => parsed.hostname === h)) {
+    return new Response(JSON.stringify({ error: { message: "URL not allowed" } }), { status: 400 });
+  }
 
   try {
-    const metaRes = await fetch(body.url, {
+    const isWrite = method === "POST" || !!payload;
+    const metaRes = await fetch(url, {
       method: isWrite ? "POST" : "GET",
       headers: {
         "Accept": "application/json",
         ...(isWrite ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
       },
-      // Meta Graph API write ops use form-encoded body
-      body: isWrite ? new URLSearchParams(body.payload).toString() : undefined,
+      body: isWrite && payload ? new URLSearchParams(payload).toString() : undefined,
     });
 
     const data = await metaRes.json();
-    return NextResponse.json(data);
+    return new Response(JSON.stringify(data), { status: 200 });
   } catch (err: any) {
-    return NextResponse.json({ error: { message: err?.message || "Proxy error" } }, { status: 500 });
+    return new Response(JSON.stringify({ error: { message: err?.message || "Proxy error" } }), { status: 500 });
   }
 }
