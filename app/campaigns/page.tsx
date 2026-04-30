@@ -38,8 +38,7 @@ export default function CampaignsPage() {
 
   useEffect(() => {
     if (token && accountId) {
-      clearFetchCache();
-      runRefresh();
+      runRefresh(); // uses cache if fresh, fetches if stale
     }
   }, [token, accountId]);
 

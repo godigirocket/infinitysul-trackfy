@@ -7,7 +7,7 @@ import {
   PieChart, Pie
 } from "recharts";
 import { Users, User, UserCheck, TrendingUp } from "lucide-react";
-import { formatCurrency, extractMetric, LEAD_ACTION_TYPES } from "@/lib/formatters";
+import { formatCurrency, extractMetric, LEAD_ACTION_TYPES, CONVERSATION_ACTION_TYPES } from "@/lib/formatters";
 import { safeArray } from "@/lib/safeArray";
 import { useState, useEffect } from "react";
 
@@ -30,7 +30,9 @@ export function AudienceBreakdown() {
       if (!map.has(age)) map.set(age, { name: age, spend: 0, leads: 0 });
       const entry = map.get(age);
       entry.spend += parseFloat(item.spend || "0");
-      entry.leads += extractMetric(item.actions, LEAD_ACTION_TYPES);
+      const leads = extractMetric(item.actions, LEAD_ACTION_TYPES);
+      const convs = extractMetric(item.actions, CONVERSATION_ACTION_TYPES);
+      entry.leads += Math.max(leads, convs); // use whichever is higher
     });
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [ageBreakdownA]);
@@ -42,7 +44,9 @@ export function AudienceBreakdown() {
       if (!map.has(gender)) map.set(gender, { name: gender === 'male' ? 'Masculino' : gender === 'female' ? 'Feminino' : 'Outros', value: 0, spend: 0 });
       const entry = map.get(gender);
       entry.spend += parseFloat(item.spend || "0");
-      entry.value += extractMetric(item.actions, LEAD_ACTION_TYPES);
+      const leads2 = extractMetric(item.actions, LEAD_ACTION_TYPES);
+      const convs2 = extractMetric(item.actions, CONVERSATION_ACTION_TYPES);
+      entry.value += Math.max(leads2, convs2);
     });
     return Array.from(map.values());
   }, [genderBreakdownA]);

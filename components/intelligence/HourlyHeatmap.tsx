@@ -44,8 +44,12 @@ export function HourlyHeatmap() {
 
       const cell = grid[dayIdx][hourIdx];
       cell.spend += parseFloat(row.spend || "0");
-      cell.leads += extractMetric(row.actions, LEAD_ACTION_TYPES);
-      cell.conversations += extractMetric(row.actions, CONVERSATION_ACTION_TYPES);
+      // For messaging campaigns, conversations is the primary metric
+      // Use whichever is higher: leads or conversations
+      const rowLeads = extractMetric(row.actions, LEAD_ACTION_TYPES);
+      const rowConvs = extractMetric(row.actions, CONVERSATION_ACTION_TYPES);
+      cell.leads += Math.max(rowLeads, rowConvs);
+      cell.conversations += rowConvs;
       cell.count += 1;
     });
 
@@ -84,10 +88,10 @@ export function HourlyHeatmap() {
   const hourLabels = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, "0")}h`);
 
   const metrics: { id: MetricType; label: string }[] = [
-    { id: "leads", label: "Volume de Leads" },
-    { id: "cpl", label: "Custo por Lead (CPL)" },
-    { id: "conversations", label: "Conversas" },
-    { id: "spend", label: "Investimento" },
+    { id: "leads",         label: "Conversas/Leads" },
+    { id: "cpl",           label: "Custo por Conv." },
+    { id: "conversations", label: "Msgs Iniciadas" },
+    { id: "spend",         label: "Investimento" },
   ];
 
   return (

@@ -222,8 +222,7 @@ export default function CreativeHubPage() {
 
   useEffect(() => {
     setMounted(true);
-    clearFetchCache();
-    runRefresh();
+    runRefresh(); // uses cache if fresh
   }, []);
 
   const safeHD: Record<string, string> = creativesHD || {};
