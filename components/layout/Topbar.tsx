@@ -32,22 +32,21 @@ export function Topbar() {
   return (
     <>
       <header
-        className="fixed top-0 right-0 z-40 h-14 flex items-center justify-between px-6 border-b border-white/[0.05]"
+        className="fixed top-0 right-0 z-40 h-14 flex items-center justify-between px-6 border-b"
         style={{
           left: "220px",
-          background: "rgba(2,6,23,0.85)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
+          background: "var(--surface)",
+          borderColor: "var(--border)",
         }}
       >
         {/* Left: status */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <div className={cn("w-1.5 h-1.5 rounded-full transition-colors",
-              !mounted ? "bg-white/20" :
+              !mounted ? "bg-[var(--surface-3)]" :
               isLoading ? "bg-warning animate-pulse" :
               isConfigured ? "bg-success animate-pulse" : "bg-danger")} />
-            <span className="text-[12px] text-white/40 font-medium" suppressHydrationWarning>
+            <span className="text-[12px] text-[var(--text-2)] font-medium" suppressHydrationWarning>
               {!mounted ? "" : isLoading ? "Sincronizando" : isConfigured ? "Conectado" : "Desconectado"}
             </span>
           </div>
@@ -61,14 +60,15 @@ export function Topbar() {
         {/* Right: period + sync */}
         <div className="flex items-center gap-2">
           {/* Period selector */}
-          <div className="flex items-center bg-white/[0.04] border border-white/[0.06] rounded-lg p-0.5 gap-0.5">
+          <div className="flex items-center rounded-lg p-0.5 gap-0.5 border"
+            style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}>
             {PERIODS.map(p => (
               <button key={p.value} onClick={() => setPeriod(p.value)} suppressHydrationWarning
                 className={cn(
                   "px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all duration-150 whitespace-nowrap",
                   mounted && period === p.value
                     ? "bg-accent text-white shadow-sm"
-                    : "text-white/40 hover:text-white/70 hover:bg-white/[0.05]"
+                    : "text-[var(--text-2)] hover:text-[var(--text)] hover:bg-[var(--surface-3)]"
                 )}>
                 {p.label}
               </button>
@@ -78,7 +78,8 @@ export function Topbar() {
           {/* Theme toggle */}
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="p-1.5 rounded-lg text-white/40 hover:text-white/80 hover:bg-white/[0.06] transition-all"
+            className="p-1.5 rounded-lg transition-all border"
+            style={{ color: "var(--text-2)", borderColor: "var(--border)", background: "var(--surface-2)" }}
             title={theme === "dark" ? "Tema claro" : "Tema escuro"}
             suppressHydrationWarning
           >
@@ -93,8 +94,9 @@ export function Topbar() {
               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all",
               isConfigured
                 ? "bg-accent hover:bg-accent-2 text-white disabled:opacity-50"
-                : "bg-white/[0.04] text-white/20 cursor-not-allowed border border-white/[0.06]"
-            )}>
+                : "text-[var(--text-3)] cursor-not-allowed border"
+            )}
+            style={!isConfigured ? { borderColor: "var(--border)", background: "var(--surface-2)" } : {}}>
             <RotateCw className={cn("w-3.5 h-3.5", isLoading && "animate-spin")} />
             <span className="hidden sm:inline">{isLoading ? "Sync..." : "Sync"}</span>
           </button>

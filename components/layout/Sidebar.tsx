@@ -60,13 +60,14 @@ export function Sidebar() {
       style={{ background: "var(--bg-2)", borderColor: "var(--border)" }}>
 
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 h-14 border-b border-white/[0.05] flex-shrink-0">
-        <div className="w-7 h-7 rounded-lg bg-gradient-accent flex items-center justify-center flex-shrink-0 shadow-glow-accent">
+      <div className="flex items-center gap-3 px-5 h-14 border-b flex-shrink-0"
+        style={{ borderColor: "var(--border)" }}>
+        <div className="w-7 h-7 rounded-lg bg-gradient-accent flex items-center justify-center flex-shrink-0">
           <Zap className="w-4 h-4 text-white" fill="white" />
         </div>
         <div>
-          <span className="text-sm font-bold tracking-tight text-white">TRACKFY</span>
-          <p className="text-[9px] text-white/30 font-medium uppercase tracking-widest -mt-0.5">Growth OS</p>
+          <span className="text-sm font-bold tracking-tight" style={{ color: "var(--text)" }}>TRACKFY</span>
+          <p className="text-[9px] font-medium uppercase tracking-widest -mt-0.5" style={{ color: "var(--text-3)" }}>Growth OS</p>
         </div>
       </div>
 
@@ -74,7 +75,7 @@ export function Sidebar() {
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5 custom-scrollbar">
         {NAV.map(section => (
           <div key={section.group}>
-            <p className="text-[9px] font-semibold text-white/25 uppercase tracking-[0.12em] px-2 mb-1.5">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.12em] px-2 mb-1.5" style={{ color: "var(--text-3)" }}>
               {section.group}
             </p>
             <div className="space-y-0.5">
@@ -84,15 +85,18 @@ export function Sidebar() {
                   <Link key={item.href} href={item.href}
                     className={cn(
                       "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 group relative",
-                      active
-                        ? "bg-accent/15 text-white"
-                        : "text-white/40 hover:text-white/80 hover:bg-white/[0.04]"
-                    )}>
+                    )}
+                    style={{
+                      background: active ? "rgba(124,58,237,0.1)" : "transparent",
+                      color: active ? "var(--accent)" : "var(--text-2)",
+                    }}
+                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "var(--surface-3)"; }}
+                    onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                  >
                     {active && (
                       <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-accent rounded-full" />
                     )}
-                    <item.icon className={cn("w-4 h-4 flex-shrink-0 transition-colors",
-                      active ? "text-accent" : "text-white/30 group-hover:text-white/60")} />
+                    <item.icon className="w-4 h-4 flex-shrink-0" />
                     {item.label}
                   </Link>
                 );
@@ -103,11 +107,14 @@ export function Sidebar() {
       </nav>
 
       {/* Bottom section */}
-      <div className="px-3 pb-4 space-y-2 flex-shrink-0 border-t border-white/[0.05] pt-3">
-        {/* Settings */}
+      <div className="px-3 pb-4 space-y-2 flex-shrink-0 border-t pt-3" style={{ borderColor: "var(--border)" }}>
         <Link href="/settings"
-          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium text-white/40 hover:text-white/80 hover:bg-white/[0.04] transition-all group">
-          <Settings className="w-4 h-4 text-white/30 group-hover:text-white/60 transition-colors" />
+          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all group"
+          style={{ color: "var(--text-2)" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "var(--surface-3)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+        >
+          <Settings className="w-4 h-4 flex-shrink-0" />
           Configurações
         </Link>
 
@@ -115,8 +122,8 @@ export function Sidebar() {
         <div className="flex items-center gap-2 px-2.5 py-1.5">
           <div className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0",
             syncStatus === "syncing" ? "bg-warning animate-pulse" :
-            syncStatus === "connected" ? "bg-success animate-pulse" : "bg-white/20")} />
-          <span className="text-[11px] text-white/30">
+            syncStatus === "connected" ? "bg-success animate-pulse" : "bg-[var(--surface-3)]")} />
+          <span className="text-[11px]" style={{ color: "var(--text-3)" }}>
             {syncStatus === "syncing" ? "Sincronizando..." :
              syncStatus === "connected" && lastSync && lastSync !== "cache" ? `Sync ${lastSync}` :
              syncStatus === "connected" ? "Conectado" : "Desconectado"}
