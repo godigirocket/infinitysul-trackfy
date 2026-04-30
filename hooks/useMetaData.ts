@@ -12,7 +12,6 @@ let isFetching = false;
 let lastFetchKey = "";
 let lastForceTime = 0;
 const FORCE_COOLDOWN_MS = 120_000; // 120s minimum between forced syncs
-const CACHE_TTL_MINUTES = 10;
 
 export function clearFetchCache() {
   lastFetchKey = "";
@@ -168,7 +167,10 @@ export function useMetaData() {
   const customEnd  = useAppStore(s => s.customEnd);
 
   useEffect(() => {
-    if (token && accountId) runRefresh();
+    if (!token || !accountId) return;
+    // Clear any in-flight fetch lock so period/date changes always trigger a fresh load
+    clearFetchCache();
+    runRefresh();
   }, [token, accountId, period, customStart, customEnd]);
 
   return { refresh: () => runRefresh(true) };
