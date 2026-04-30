@@ -1,71 +1,108 @@
 "use client";
 
 import { useAppStore } from "@/store/useAppStore";
-import { runRefresh } from "@/hooks/useMetaData";
+import { runRefresh, clearFetchCache } from "@/hooks/useMetaData";
 import { useState, useEffect } from "react";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { RotateCw } from "lucide-react";
-import { cn } from "@/components/ui/Button";
+import { RotateCw, Wifi, WifiOff, AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
+// Updated periods: Hoje, Ontem, 2D, 3D, 7D, 14D, 30D, Máximo
 const PERIODS = [
-  { label: "Hoje", value: "today" },
-  { label: "Ontem", value: "yesterday" },
-  { label: "7D", value: "last_7d" },
-  { label: "14D", value: "last_14d" },
-  { label: "30D", value: "last_30d" },
-  { label: "M\u00eas", value: "this_month" },
-  { label: "\u00dalt. M\u00eas", value: "last_month" },
-  { label: "M\u00e1ximo", value: "maximum" },
+  { label: "Hoje",    value: "today" },
+  { label: "Ontem",  value: "yesterday" },
+  { label: "2 dias", value: "last_2d" },
+  { label: "3 dias", value: "last_3d" },
+  { label: "7 dias", value: "last_7d" },
+  { label: "14 dias", value: "last_14d" },
+  { label: "30 dias", value: "last_30d" },
+  { label: "Máximo", value: "maximum" },
 ];
 
 export function Topbar() {
-  const { period, setPeriod, isCompare, setIsCompare, isLoading, apiError } = useAppStore();
+  const { period, setPeriod, isLoading, apiError, token, accountId } = useAppStore();
+
+  // Use mounted to avoid hydration mismatch — render identical placeholder on server
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
+  // Connection status — only meaningful after mount (client-only)
+  const isConfigured = mounted && !!token && !!accountId;
+  const statusLabel = !mounted ? "" : isLoading ? "Sincronizando" : isConfigured ? "Conectado" : "Desconectado";
+  const statusColor = !mounted ? "bg-muted" : isLoading ? "bg-warning animate-pulse" : isConfigured ? "bg-success animate-pulse" : "bg-danger";
+
+  const handleSync = () => {
+    clearFetchCache();
+    runRefresh();
+  };
+
   return (
     <>
-      <header className="fixed top-0 right-0 left-64 h-16 bg-surface/80 backdrop-blur-md border-b border-border px-4 sm:px-8 flex items-center justify-between z-40">
-        {mounted ? (
-          <>
-            <div className="flex items-center gap-3 sm:gap-6">
-              <Badge variant={isLoading ? "warning" : "success"} className="h-6 gap-1.5 px-2 sm:px-3 bg-white/5 border-white/10">
-                {isLoading ? (
-                  <><RotateCw className="w-3 h-3 animate-spin" /><span className="text-[9px] sm:text-[10px] font-bold uppercase hidden sm:inline">Sincronizando...</span></>
-                ) : (
-                  <><div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" /><span className="text-[9px] sm:text-[10px] font-bold uppercase hidden sm:inline">Conectado</span></>
-                )}
-              </Badge>
-              <label className="hidden lg:flex items-center gap-2 cursor-pointer group">
-                <input type="checkbox" checked={isCompare} onChange={(e) => setIsCompare(e.target.checked)} className="w-3.5 h-3.5 rounded border-white/10 bg-white/5 text-accent checked:bg-accent focus:ring-0" />
-                <span className={cn("text-[10px] font-bold uppercase tracking-widest transition-colors", isCompare ? "text-accent" : "text-muted")}>Comparar</span>
-              </label>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-4">
-              <div className="flex bg-white/5 rounded-lg sm:rounded-xl p-0.5 sm:p-1 border border-white/5 overflow-x-auto scrollbar-hide">
-                {PERIODS.map((p) => (
-                  <button key={p.value} onClick={() => setPeriod(p.value)}
-                    className={cn("px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[9px] sm:text-[10px] font-bold uppercase transition-all duration-200 tracking-tighter whitespace-nowrap flex-shrink-0",
-                      period === p.value ? "bg-accent text-white shadow-lg" : "text-muted hover:text-white hover:bg-white/5")}>
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-              <Button onClick={() => runRefresh()} size="sm" className="gap-1.5 h-7 sm:h-8 font-bold bg-accent hover:bg-accent/90 text-white border-0 text-[9px] sm:text-[10px] px-2 sm:px-3">
-                <RotateCw className={cn("w-3 h-3", isLoading && "animate-spin")} />
-                <span className="uppercase tracking-wider hidden sm:inline">Sinc</span>
-              </Button>
-            </div>
-          </>
-        ) : null}
-      </header>
-      {mounted && apiError && (
-        <div className="fixed top-16 right-0 left-64 z-30 p-2 bg-danger/10 border-b border-danger/20 text-danger">
-          <div className="flex items-center justify-center gap-2 px-4">
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">Erro Meta Ads:</span>
-            <span className="text-[10px] sm:text-[11px] font-mono truncate max-w-md">{apiError}</span>
+      {/* Fixed topbar — same structure on server and client (no conditional JSX tree) */}
+      <header className="fixed top-0 right-0 left-64 h-14 bg-[#0a0a0f]/90 backdrop-blur-xl border-b border-white/[0.06] px-6 flex items-center justify-between z-40">
+
+        {/* Left: status badge */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08]">
+            <div className={cn("w-2 h-2 rounded-full transition-colors", statusColor)} />
+            <span className="text-[11px] font-semibold text-white/70 min-w-[80px]" suppressHydrationWarning>
+              {statusLabel}
+            </span>
           </div>
+
+          {/* Configured but no data hint */}
+          {mounted && !isConfigured && (
+            <a href="/settings" className="flex items-center gap-1.5 text-[11px] text-warning/80 hover:text-warning transition-colors">
+              <AlertCircle className="w-3.5 h-3.5" />
+              Configure o token
+            </a>
+          )}
+        </div>
+
+        {/* Right: period selector + sync */}
+        <div className="flex items-center gap-3">
+          {/* Period pills */}
+          <div className="flex items-center bg-white/[0.04] rounded-xl border border-white/[0.06] p-1 gap-0.5 overflow-x-auto scrollbar-hide max-w-[520px]">
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                suppressHydrationWarning
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-150 whitespace-nowrap flex-shrink-0",
+                  mounted && period === p.value
+                    ? "bg-accent text-white shadow-md shadow-accent/20"
+                    : "text-white/50 hover:text-white hover:bg-white/[0.06]"
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Sync button */}
+          <button
+            onClick={handleSync}
+            disabled={isLoading || !isConfigured}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-semibold transition-all",
+              isConfigured
+                ? "bg-accent hover:bg-accent/90 text-white shadow-md shadow-accent/20 disabled:opacity-60"
+                : "bg-white/[0.04] text-white/30 cursor-not-allowed border border-white/[0.06]"
+            )}
+          >
+            <RotateCw className={cn("w-3.5 h-3.5", isLoading && "animate-spin")} />
+            <span className="hidden sm:inline">{isLoading ? "Sincronizando..." : "Sincronizar"}</span>
+          </button>
+        </div>
+      </header>
+
+      {/* Error banner — only shown client-side after mount */}
+      {mounted && apiError && (
+        <div className="fixed top-14 right-0 left-64 z-30 px-6 py-2.5 bg-danger/10 border-b border-danger/20 flex items-center gap-3">
+          <AlertCircle className="w-4 h-4 text-danger flex-shrink-0" />
+          <span className="text-[11px] font-semibold text-danger">Erro Meta Ads:</span>
+          <span className="text-[11px] text-danger/80 font-mono truncate">{apiError}</span>
+          <button onClick={() => useAppStore.getState().setApiError(null)} className="ml-auto text-danger/60 hover:text-danger text-xs">✕</button>
         </div>
       )}
     </>

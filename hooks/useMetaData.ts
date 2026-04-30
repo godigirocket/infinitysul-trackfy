@@ -21,7 +21,22 @@ export async function runRefresh() {
 
   if (!token || !accountId) return;
 
-  const key = `${token}|${accountId}|${period}|${customStart}|${customEnd}|${isCompare}`;
+  // Resolve non-standard periods (last_2d, last_3d) to date ranges
+  let resolvedPeriod = period;
+  let resolvedStart = customStart;
+  let resolvedEnd = customEnd;
+
+  if (period === "last_2d" || period === "last_3d") {
+    const days = period === "last_2d" ? 2 : 3;
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - (days - 1));
+    resolvedPeriod = "custom";
+    resolvedStart = start.toISOString().split("T")[0];
+    resolvedEnd = end.toISOString().split("T")[0];
+  }
+
+  const key = `${token}|${accountId}|${resolvedPeriod}|${resolvedStart}|${resolvedEnd}|${isCompare}`;
   if (isFetching || key === lastFetchKey) return;
 
   isFetching = true;
@@ -32,7 +47,7 @@ export async function runRefresh() {
   store.setApiError(null);
 
   try {
-    const tp = { period, customStart, customEnd };
+    const tp = { period: resolvedPeriod, customStart: resolvedStart, customEnd: resolvedEnd };
 
     // Primary: campaign + ad insights + hourly (parallel)
     const [campRes, adRes, hourlyRes] = await Promise.allSettled([
@@ -54,7 +69,7 @@ export async function runRefresh() {
     // Comparison period
     let dataB: any[] = [];
     if (isCompare && dataA.length > 0) {
-      const lp = period === "last_7d" ? "last_14d" : "last_90d";
+      const lp = resolvedPeriod === "last_7d" ? "last_14d" : "last_90d";
       const fullRes = await fetchMetaInsights(accountId, token, { period: lp, level: "campaign" }).catch(() => []);
       const minDate = [...new Set(dataA.map(d => d.date_start))].sort()[0];
       if (minDate) dataB = fullRes.filter(d => new Date(d.date_start) < new Date(minDate));
@@ -101,10 +116,7 @@ export function useMetaData() {
   const isCompare = useAppStore(s => s.isCompare);
 
   useEffect(() => {
-    // Only run when we actually have credentials
-    if (token && accountId) {
-      runRefresh();
-    }
+    if (token && accountId) runRefresh();
   }, [token, accountId, period, customStart, customEnd, isCompare]);
 
   return { refresh: runRefresh };
