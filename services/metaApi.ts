@@ -10,11 +10,19 @@ async function metaGet(url: string, attempt = 0): Promise<any> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url }),
   });
+
+  // Proxy always returns 200; parse body to check for errors
   const json = await res.json();
 
-  // Retry transient / 504
-  if ((res.status === 504 || json?.error?.is_transient) && attempt < 2) {
-    await new Promise(r => setTimeout(r, (attempt + 1) * 2000));
+  // Retry on transient errors (timeout, rate limit, server errors)
+  const isTransient = json?.error?.is_transient
+    || json?.error?.code === 504
+    || json?.error?.code === 1
+    || json?.error?.code === 2
+    || json?.error?.code === 17; // rate limit
+
+  if (isTransient && attempt < 2) {
+    await new Promise(r => setTimeout(r, (attempt + 1) * 3000));
     return metaGet(url, attempt + 1);
   }
 
@@ -187,16 +195,16 @@ export const fetchAccountStructure = async (accountId: string, token: string) =>
   const id = normalizeAccountId(accountId);
   const t = `access_token=${token}`;
 
-  const [camps, adsets, ads] = await Promise.all([
+  const [campsRes, adsetsRes, adsRes] = await Promise.allSettled([
     metaGet(`${BASE}/${id}/campaigns?${t}&fields=id,name,effective_status,objective,daily_budget,lifetime_budget,status&limit=1000`),
     metaGet(`${BASE}/${id}/adsets?${t}&fields=id,name,effective_status,campaign_id,daily_budget,lifetime_budget,optimization_goal,status&limit=1000`),
     metaGet(`${BASE}/${id}/ads?${t}&fields=id,name,effective_status,adset_id,campaign_id,creative{id,thumbnail_url,image_url,name}&limit=1000`),
   ]);
 
   return {
-    campaigns: (camps.data || []) as any[],
-    adsets: (adsets.data || []) as any[],
-    ads: (ads.data || []) as any[],
+    campaigns: (campsRes.status === "fulfilled" ? campsRes.value.data : []) as any[],
+    adsets: (adsetsRes.status === "fulfilled" ? adsetsRes.value.data : []) as any[],
+    ads: (adsRes.status === "fulfilled" ? adsRes.value.data : []) as any[],
   };
 };
 

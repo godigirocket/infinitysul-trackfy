@@ -23,10 +23,15 @@ export async function POST(req: Request) {
     return new Response(JSON.stringify({ error: { message: "URL not allowed" } }), { status: 400 });
   }
 
+  // 25s timeout — safely under Vercel Edge's 30s wall clock limit
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 25000);
+
   try {
     const isWrite = method === "POST" || !!payload;
     const metaRes = await fetch(url, {
       method: isWrite ? "POST" : "GET",
+      signal: controller.signal,
       headers: {
         "Accept": "application/json",
         ...(isWrite ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
@@ -34,9 +39,23 @@ export async function POST(req: Request) {
       body: isWrite && payload ? new URLSearchParams(payload).toString() : undefined,
     });
 
+    clearTimeout(timer);
     const data = await metaRes.json();
+    // Always 200 — let client handle Meta error objects
     return new Response(JSON.stringify(data), { status: 200 });
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: { message: err?.message || "Proxy error" } }), { status: 500 });
+    clearTimeout(timer);
+    const isTimeout = err?.name === "AbortError";
+    // Return a Meta-shaped error so client retry logic works
+    return new Response(
+      JSON.stringify({
+        error: {
+          message: isTimeout ? "Request timed out" : (err?.message || "Proxy error"),
+          is_transient: isTimeout,
+          code: isTimeout ? 504 : 500,
+        }
+      }),
+      { status: 200 } // Always 200 so client receives the body
+    );
   }
 }

@@ -98,7 +98,7 @@ export function CylinderFunnel() {
         {[
           { label: "CTR Geral", value: stages[0].value > 0 ? ((stages[1].value / stages[0].value) * 100).toFixed(2) + "%" : "0.00%", color: "text-accent" },
           { label: "Click → Lead", value: stages[1].value > 0 ? ((stages[2].value / stages[1].value) * 100).toFixed(2) + "%" : "0.00%", color: "text-emerald-400" },
-          { label: "Lead → Venda", value: stages[2].value > 0 ? ((stages[4].value / stages[2].value) * 100).toFixed(2) + "%" : "0.00%", color: "text-red-400" },
+          { label: "Lead → Venda", value: stages[2]?.value > 0 && stages[3]?.value > 0 ? ((stages[3].value / stages[2].value) * 100).toFixed(2) + "%" : "0.00%", color: "text-red-400" },
         ].map(item => (
           <div key={item.label} className="text-center">
             <span className="text-[10px] font-bold text-muted uppercase tracking-widest block mb-1">{item.label}</span>

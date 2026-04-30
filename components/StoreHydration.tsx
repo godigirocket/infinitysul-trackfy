@@ -1,24 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { runRefresh } from "@/hooks/useMetaData";
-
-// Hydrate synchronously on module load (client only)
-// This runs before any React component renders on the client
-if (typeof window !== "undefined") {
-  useAppStore.getState()._hydrate();
-}
+import { runRefresh, clearFetchCache } from "@/hooks/useMetaData";
 
 export function StoreHydration() {
-  const [hydrated, setHydrated] = useState(false);
-
   useEffect(() => {
-    // Re-hydrate in effect to catch any timing issues
+    // 1. Load persisted token/accountId from localStorage
     useAppStore.getState()._hydrate();
-    setHydrated(true);
-    // Trigger refresh now that token/accountId are loaded
-    runRefresh();
+
+    // 2. Small delay to ensure React state update from _hydrate propagates
+    //    before runRefresh reads from the store
+    const timer = setTimeout(() => {
+      clearFetchCache();
+      runRefresh();
+    }, 50);
+
+    return () => clearTimeout(timer);
   }, []);
 
   return null;
